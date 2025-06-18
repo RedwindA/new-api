@@ -64,11 +64,12 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
-	if strings.HasPrefix(info.UpstreamModelName, "claude") {
+	switch {
+	case strings.HasPrefix(info.UpstreamModelName, "claude"):
 		a.RequestMode = RequestModeClaude
-	} else if strings.HasPrefix(info.UpstreamModelName, "gemini") {
+	case strings.HasPrefix(info.UpstreamModelName, "gemini"):
 		a.RequestMode = RequestModeGemini
-	} else if strings.Contains(info.UpstreamModelName, "llama") {
+	case strings.Contains(info.UpstreamModelName, "llama"):
 		a.RequestMode = RequestModeLlama
 	}
 }
@@ -80,13 +81,17 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	}
 	region := GetModelRegion(info.ApiVersion, info.OriginModelName)
 	a.AccountCredentials = *adc
-	suffix := ""
-	if a.RequestMode == RequestModeGemini {
+	var suffix string
+	switch a.RequestMode {
+	case RequestModeGemini:
 		if model_setting.GetGeminiSettings().ThinkingAdapterEnabled {
-			// suffix -thinking and -nothinking
-			if strings.HasSuffix(info.OriginModelName, "-thinking") {
+			// 与relay/channel/gemini/adaptor.go 中的逻辑保持一致
+			if strings.Contains(info.UpstreamModelName, "-thinking-") {
+				parts := strings.Split(info.UpstreamModelName, "-thinking-")
+				info.UpstreamModelName = parts[0]
+			} else if strings.HasSuffix(info.UpstreamModelName, "-thinking") { // 旧的适配
 				info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
-			} else if strings.HasSuffix(info.OriginModelName, "-nothinking") {
+			} else if strings.HasSuffix(info.UpstreamModelName, "-nothinking") {
 				info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-nothinking")
 			}
 		}
@@ -103,17 +108,16 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 				info.UpstreamModelName,
 				suffix,
 			), nil
-		} else {
-			return fmt.Sprintf(
-				"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
-				region,
-				adc.ProjectID,
-				region,
-				info.UpstreamModelName,
-				suffix,
-			), nil
 		}
-	} else if a.RequestMode == RequestModeClaude {
+		return fmt.Sprintf(
+			"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
+			region,
+			adc.ProjectID,
+			region,
+			info.UpstreamModelName,
+			suffix,
+		), nil
+	case RequestModeClaude:
 		if info.IsStream {
 			suffix = "streamRawPredict?alt=sse"
 		} else {
@@ -123,6 +127,14 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		if v, ok := claudeModelMap[info.UpstreamModelName]; ok {
 			model = v
 		}
+		if region == "global" {
+			return fmt.Sprintf(
+				"https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/anthropic/models/%s:%s",
+				adc.ProjectID,
+				model,
+				suffix,
+			), nil
+		}
 		return fmt.Sprintf(
 			"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/anthropic/models/%s:%s",
 			region,
@@ -131,15 +143,16 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			model,
 			suffix,
 		), nil
-	} else if a.RequestMode == RequestModeLlama {
+	case RequestModeLlama:
 		return fmt.Sprintf(
 			"https://%s-aiplatform.googleapis.com/v1beta1/projects/%s/locations/%s/endpoints/openapi/chat/completions",
 			region,
 			adc.ProjectID,
 			region,
 		), nil
+	default:
+		return "", errors.New("unsupported request mode")
 	}
-	return "", errors.New("unsupported request mode")
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
@@ -156,7 +169,8 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
-	if a.RequestMode == RequestModeClaude {
+	switch a.RequestMode {
+	case RequestModeClaude:
 		claudeReq, err := claude.RequestOpenAI2ClaudeMessage(*request)
 		if err != nil {
 			return nil, err
@@ -165,17 +179,18 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		c.Set("request_model", claudeReq.Model)
 		info.UpstreamModelName = claudeReq.Model
 		return vertexClaudeReq, nil
-	} else if a.RequestMode == RequestModeGemini {
+	case RequestModeGemini:
 		geminiRequest, err := gemini.CovertGemini2OpenAI(*request, info)
 		if err != nil {
 			return nil, err
 		}
 		c.Set("request_model", request.Model)
 		return geminiRequest, nil
-	} else if a.RequestMode == RequestModeLlama {
+	case RequestModeLlama:
 		return request, nil
+	default:
+		return nil, errors.New("unsupported request mode")
 	}
-	return nil, errors.New("unsupported request mode")
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
