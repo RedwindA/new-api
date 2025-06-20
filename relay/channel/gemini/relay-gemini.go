@@ -99,7 +99,7 @@ func CovertGemini2OpenAI(textRequest dto.GeneralOpenAIRequest, info *relaycommon
 	}
 
 	if model_setting.GetGeminiSettings().ThinkingAdapterEnabled {
-		modelName := info.OriginModelName
+		modelName := info.UpstreamModelName
 		isNew25Pro := strings.HasPrefix(modelName, "gemini-2.5-pro") &&
 			!strings.HasPrefix(modelName, "gemini-2.5-pro-preview-05-06") &&
 			!strings.HasPrefix(modelName, "gemini-2.5-pro-preview-03-25")
@@ -374,7 +374,9 @@ func CovertGemini2OpenAI(textRequest dto.GeneralOpenAIRequest, info *relaycommon
 		if content.Role == "assistant" {
 			content.Role = "model"
 		}
-		geminiRequest.Contents = append(geminiRequest.Contents, content)
+		if len(content.Parts) > 0 {
+			geminiRequest.Contents = append(geminiRequest.Contents, content)
+		}
 	}
 
 	if len(system_content) > 0 {
