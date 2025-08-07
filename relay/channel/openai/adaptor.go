@@ -425,12 +425,21 @@ func detectImageMimeType(filename string) string {
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
 	// 模型后缀转换 reasoning effort
 	if strings.HasSuffix(request.Model, "-high") {
+		if request.Reasoning == nil {
+			request.Reasoning = &dto.Reasoning{}
+		}
 		request.Reasoning.Effort = "high"
 		request.Model = strings.TrimSuffix(request.Model, "-high")
 	} else if strings.HasSuffix(request.Model, "-low") {
+		if request.Reasoning == nil {
+			request.Reasoning = &dto.Reasoning{}
+		}
 		request.Reasoning.Effort = "low"
 		request.Model = strings.TrimSuffix(request.Model, "-low")
 	} else if strings.HasSuffix(request.Model, "-medium") {
+		if request.Reasoning == nil {
+			request.Reasoning = &dto.Reasoning{}
+		}
 		request.Reasoning.Effort = "medium"
 		request.Model = strings.TrimSuffix(request.Model, "-medium")
 	}
