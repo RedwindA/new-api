@@ -115,6 +115,8 @@ func setupLogin(user *model.User, c *gin.Context) {
 		Role:        user.Role,
 		Status:      user.Status,
 		Group:       user.Group,
+		GoogleId:    user.GoogleId,
+		GoogleEmail: user.GoogleEmail,
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
@@ -451,6 +453,8 @@ func GetSelf(c *gin.Context) {
 		"status":            user.Status,
 		"email":             user.Email,
 		"github_id":         user.GitHubId,
+		"google_id":         user.GoogleId,
+		"google_email":      user.GoogleEmail,
 		"oidc_id":           user.OidcId,
 		"wechat_id":         user.WeChatId,
 		"telegram_id":       user.TelegramId,

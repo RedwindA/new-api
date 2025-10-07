@@ -71,6 +71,7 @@ const EditUserModal = (props) => {
     display_name: '',
     password: '',
     github_id: '',
+    google_id: '',
     oidc_id: '',
     wechat_id: '',
     telegram_id: '',
@@ -332,6 +333,7 @@ const EditUserModal = (props) => {
                   <Row gutter={12}>
                     {[
                       'github_id',
+                      'google_id',
                       'oidc_id',
                       'wechat_id',
                       'email',

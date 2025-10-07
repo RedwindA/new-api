@@ -30,6 +30,7 @@ import {
   getSystemName,
   setUserData,
   onGitHubOAuthClicked,
+  onGoogleOAuthClicked,
   onOIDCClicked,
   onLinuxDOOAuthClicked,
   prepareCredentialRequestOptions,
@@ -51,6 +52,7 @@ import {
 import OIDCIcon from '../common/logo/OIDCIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
 import LinuxDoIcon from '../common/logo/LinuxDoIcon';
+import GoogleIcon from '../common/logo/GoogleIcon';
 import TwoFAVerification from './TwoFAVerification';
 import { useTranslation } from 'react-i18next';
 
@@ -73,6 +75,7 @@ const LoginForm = () => {
   const [showEmailLogin, setShowEmailLogin] = useState(false);
   const [wechatLoading, setWechatLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [oidcLoading, setOidcLoading] = useState(false);
   const [linuxdoLoading, setLinuxdoLoading] = useState(false);
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
@@ -253,6 +256,16 @@ const LoginForm = () => {
     }
   };
 
+  // 包装的Google登录点击处理
+  const handleGoogleClick = () => {
+    setGoogleLoading(true);
+    try {
+      onGoogleOAuthClicked(status.google_client_id);
+    } finally {
+      setTimeout(() => setGoogleLoading(false), 3000);
+    }
+  };
+
   // 包装的OIDC登录点击处理
   const handleOIDCClick = () => {
     setOidcLoading(true);
@@ -411,6 +424,19 @@ const LoginForm = () => {
                     loading={githubLoading}
                   >
                     <span className='ml-3'>{t('使用 GitHub 继续')}</span>
+                  </Button>
+                )}
+
+                {status.google_oauth && (
+                  <Button
+                    theme='outline'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={<Icon svg={<GoogleIcon />} style={{ width: 20, height: 20 }} />}
+                    onClick={handleGoogleClick}
+                    loading={googleLoading}
+                  >
+                    <span className='ml-3'>{t('使用 Google 继续')}</span>
                   </Button>
                 )}
 
@@ -579,6 +605,7 @@ const LoginForm = () => {
               </Form>
 
               {(status.github_oauth ||
+                status.google_oauth ||
                 status.oidc_enabled ||
                 status.wechat_login ||
                 status.linuxdo_oauth ||
@@ -714,6 +741,7 @@ const LoginForm = () => {
         {showEmailLogin ||
         !(
           status.github_oauth ||
+          status.google_oauth ||
           status.oidc_enabled ||
           status.wechat_login ||
           status.linuxdo_oauth ||

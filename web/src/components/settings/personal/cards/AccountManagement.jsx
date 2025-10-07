@@ -43,10 +43,12 @@ import { UserPlus, ShieldCheck } from 'lucide-react';
 import TelegramLoginButton from 'react-telegram-login';
 import {
   onGitHubOAuthClicked,
+  onGoogleOAuthClicked,
   onOIDCClicked,
   onLinuxDOOAuthClicked,
 } from '../../../../helpers';
 import TwoFASetting from '../components/TwoFASetting';
+import GoogleIcon from '../../../common/logo/GoogleIcon';
 
 const AccountManagement = ({
   t,
@@ -242,6 +244,45 @@ const AccountManagement = ({
                       }
                     >
                       {status.github_oauth ? t('绑定') : t('未启用')}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Google绑定 */}
+              <Card className='!rounded-xl'>
+                <div className='flex items-center justify-between gap-3'>
+                  <div className='flex items-center flex-1 min-w-0'>
+                    <div className='w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3 flex-shrink-0'>
+                      <GoogleIcon style={{ width: '20px', height: '20px' }} />
+                    </div>
+                    <div className='flex-1 min-w-0'>
+                      <div className='font-medium text-gray-900'>Google</div>
+                      <div className='text-sm text-gray-500 truncate'>
+                        {renderAccountInfo(
+                          userState.user?.google_email ||
+                            userState.user?.google_id,
+                          userState.user?.google_email
+                            ? t('Google 邮箱')
+                            : t('Google ID'),
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className='flex-shrink-0'>
+                    <Button
+                      type='primary'
+                      theme='outline'
+                      size='small'
+                      onClick={() =>
+                        onGoogleOAuthClicked(status.google_client_id)
+                      }
+                      disabled={
+                        isBound(userState.user?.google_email || userState.user?.google_id) ||
+                        !status.google_oauth
+                      }
+                    >
+                      {status.google_oauth ? t('绑定') : t('未启用')}
                     </Button>
                   </div>
                 </div>

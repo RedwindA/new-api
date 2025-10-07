@@ -255,6 +255,22 @@ export async function onGitHubOAuthClicked(github_client_id) {
   );
 }
 
+export async function onGoogleOAuthClicked(google_client_id) {
+  const state = await getOAuthState();
+  if (!state) return;
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authUrl.searchParams.set('client_id', google_client_id);
+  authUrl.searchParams.set(
+    'redirect_uri',
+    `${window.location.origin}/oauth/google`,
+  );
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', 'openid email profile');
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('prompt', 'select_account');
+  window.open(authUrl.toString());
+}
+
 export async function onLinuxDOOAuthClicked(linuxdo_client_id) {
   const state = await getOAuthState();
   if (!state) return;
