@@ -25,6 +25,7 @@ import {
 } from './utils';
 import axios from 'axios';
 import { MESSAGE_ROLES } from '../constants/playground.constants';
+import { t } from 'i18next';
 
 export let API = axios.create({
   baseURL: import.meta.env.VITE_REACT_APP_SERVER_URL
@@ -258,6 +259,10 @@ export async function onGitHubOAuthClicked(github_client_id) {
 export async function onGoogleOAuthClicked(google_client_id) {
   const state = await getOAuthState();
   if (!state) return;
+  if (!google_client_id) {
+    showError(t('Google OAuth未配置，请联系管理员'));
+    return;
+  }
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authUrl.searchParams.set('client_id', google_client_id);
   authUrl.searchParams.set(

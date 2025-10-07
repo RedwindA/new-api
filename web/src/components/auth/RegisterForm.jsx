@@ -237,6 +237,10 @@ const RegisterForm = () => {
   };
 
   const handleGoogleClick = () => {
+    if (!status.google_client_id) {
+      showError(t('Google OAuth 未配置，请联系管理员！'));
+      return;
+    }
     setGoogleLoading(true);
     try {
       onGoogleOAuthClicked(status.google_client_id);

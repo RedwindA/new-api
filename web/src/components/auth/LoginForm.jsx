@@ -258,6 +258,10 @@ const LoginForm = () => {
 
   // 包装的Google登录点击处理
   const handleGoogleClick = () => {
+    if (!status.google_client_id) {
+      showError(t('Google OAuth未配置，请联系管理员'));
+      return;
+    }
     setGoogleLoading(true);
     try {
       onGoogleOAuthClicked(status.google_client_id);
