@@ -341,6 +341,28 @@ type GeminiChatGenerationConfig struct {
 	ImageConfig        json.RawMessage       `json:"imageConfig,omitempty"`  // RawMessage to allow flexible image config
 }
 
+// UnmarshalJSON handles flexible types for MaxOutputTokens (ignores string values)
+func (c *GeminiChatGenerationConfig) UnmarshalJSON(data []byte) error {
+	type Alias GeminiChatGenerationConfig
+	var aux struct {
+		Alias
+		MaxOutputTokens interface{} `json:"maxOutputTokens,omitempty"`
+	}
+
+	if err := common.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	*c = GeminiChatGenerationConfig(aux.Alias)
+
+	// Only handle numeric type, ignore strings (field will be omitted when marshaling)
+	if v, ok := aux.MaxOutputTokens.(float64); ok {
+		c.MaxOutputTokens = uint(v)
+	}
+
+	return nil
+}
+
 type MediaResolution string
 
 type GeminiChatCandidate struct {
