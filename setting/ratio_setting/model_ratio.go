@@ -834,6 +834,15 @@ func FormatMatchingModelName(name string) string {
 	if strings.HasPrefix(name, "gpt-4o-gizmo") {
 		name = "gpt-4o-gizmo-*"
 	}
+
+	// Strip reasoning effort suffixes for pricing
+	reasoningSuffixes := []string{"-high", "-minimal", "-low", "-medium", "-none", "-xhigh"}
+	for _, suffix := range reasoningSuffixes {
+		if strings.HasSuffix(name, suffix) {
+			name = strings.TrimSuffix(name, suffix)
+			break
+		}
+	}
 	return name
 }
 
