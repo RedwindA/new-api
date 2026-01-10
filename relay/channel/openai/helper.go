@@ -92,14 +92,30 @@ func ProcessStreamResponse(streamResponse dto.ChatCompletionsStreamResponse, res
 	return nil
 }
 
-func processTokens(relayMode int, streamItems []string, responseTextBuilder *strings.Builder, toolCount *int) error {
-	streamResp := "[" + strings.Join(streamItems, ",") + "]"
-
+// processStreamChunkIncremental 增量处理单个流式数据块，避免累积所有数据块导致内存暴涨
+func processStreamChunkIncremental(relayMode int, data string, builder *strings.Builder, toolCount *int) {
 	switch relayMode {
 	case relayconstant.RelayModeChatCompletions:
-		return processChatCompletions(streamResp, streamItems, responseTextBuilder, toolCount)
+		var resp dto.ChatCompletionsStreamResponse
+		if err := json.Unmarshal(common.StringToByteSlice(data), &resp); err != nil {
+			return
+		}
+		_ = ProcessStreamResponse(resp, builder, toolCount)
 	case relayconstant.RelayModeCompletions:
-		return processCompletions(streamResp, streamItems, responseTextBuilder)
+		var resp dto.CompletionsStreamResponse
+		if err := json.Unmarshal(common.StringToByteSlice(data), &resp); err != nil {
+			return
+		}
+		for _, choice := range resp.Choices {
+			builder.WriteString(choice.Text)
+		}
+	}
+}
+
+func processTokens(relayMode int, streamItems []string, responseTextBuilder *strings.Builder, toolCount *int) error {
+	// 直接逐项处理，避免字符串拼接导致的 3 倍内存占用
+	for _, item := range streamItems {
+		processStreamChunkIncremental(relayMode, item, responseTextBuilder, toolCount)
 	}
 	return nil
 }

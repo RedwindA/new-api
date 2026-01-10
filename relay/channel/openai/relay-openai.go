@@ -119,7 +119,6 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var responseTextBuilder strings.Builder
 	var toolCount int
 	var usage = &dto.Usage{}
-	var streamItems []string // store stream items
 	var lastStreamData string
 	var secondLastStreamData string // 存储倒数第二个stream data，用于音频模型
 
@@ -127,11 +126,14 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	isAudioModel := strings.Contains(strings.ToLower(model), "audio")
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
-		if lastStreamData != "" {
+		if len(data) > 0 && lastStreamData != "" {
+			// 只有当有新数据替换时才处理上一个数据块
 			err := HandleStreamFormat(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
 			if err != nil {
 				common.SysLog("error handling stream format: " + err.Error())
 			}
+			// 增量处理 token，避免累积所有数据块导致内存暴涨
+			processStreamChunkIncremental(info.RelayMode, lastStreamData, &responseTextBuilder, &toolCount)
 		}
 		if len(data) > 0 {
 			// 对音频模型，保存倒数第二个stream data
@@ -140,7 +142,6 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 
 			lastStreamData = data
-			streamItems = append(streamItems, data)
 		}
 		return true
 	})
@@ -176,9 +177,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		}
 	}
 
-	// 处理token计算
-	if err := processTokens(info.RelayMode, streamItems, &responseTextBuilder, &toolCount); err != nil {
-		logger.LogError(c, "error processing tokens: "+err.Error())
+	// 处理最后一个数据块的 token（回调中只处理了之前的数据块）
+	if lastStreamData != "" {
+		processStreamChunkIncremental(info.RelayMode, lastStreamData, &responseTextBuilder, &toolCount)
 	}
 
 	if !containStreamUsage {
