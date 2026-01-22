@@ -132,6 +132,97 @@ const NotificationSettings = ({
     };
   };
 
+  const generateDefaultConfig = (baseAdminConfig = adminConfig) => {
+    const defaultConfig = {};
+    const isAllowedByAdminConfig = (sectionKey, moduleKey = null) => {
+      if (!baseAdminConfig) return true;
+      if (moduleKey) {
+        return (
+          baseAdminConfig[sectionKey]?.enabled &&
+          baseAdminConfig[sectionKey]?.[moduleKey]
+        );
+      }
+      return baseAdminConfig[sectionKey]?.enabled;
+    };
+
+    if (isSidebarSectionAllowed('chat') && isAllowedByAdminConfig('chat')) {
+      defaultConfig.chat = {
+        enabled: true,
+        playground:
+          isSidebarModuleAllowed('chat', 'playground') &&
+          isAllowedByAdminConfig('chat', 'playground'),
+        chat:
+          isSidebarModuleAllowed('chat', 'chat') &&
+          isAllowedByAdminConfig('chat', 'chat'),
+      };
+    }
+
+    if (
+      isSidebarSectionAllowed('console') &&
+      isAllowedByAdminConfig('console')
+    ) {
+      defaultConfig.console = {
+        enabled: true,
+        detail:
+          isSidebarModuleAllowed('console', 'detail') &&
+          isAllowedByAdminConfig('console', 'detail'),
+        token:
+          isSidebarModuleAllowed('console', 'token') &&
+          isAllowedByAdminConfig('console', 'token'),
+        log:
+          isSidebarModuleAllowed('console', 'log') &&
+          isAllowedByAdminConfig('console', 'log'),
+        midjourney:
+          isSidebarModuleAllowed('console', 'midjourney') &&
+          isAllowedByAdminConfig('console', 'midjourney'),
+        task:
+          isSidebarModuleAllowed('console', 'task') &&
+          isAllowedByAdminConfig('console', 'task'),
+      };
+    }
+
+    if (
+      isSidebarSectionAllowed('personal') &&
+      isAllowedByAdminConfig('personal')
+    ) {
+      defaultConfig.personal = {
+        enabled: true,
+        topup:
+          isSidebarModuleAllowed('personal', 'topup') &&
+          isAllowedByAdminConfig('personal', 'topup'),
+        personal:
+          isSidebarModuleAllowed('personal', 'personal') &&
+          isAllowedByAdminConfig('personal', 'personal'),
+      };
+    }
+
+    if (isSidebarSectionAllowed('admin') && isAllowedByAdminConfig('admin')) {
+      defaultConfig.admin = {
+        enabled: true,
+        channel:
+          isSidebarModuleAllowed('admin', 'channel') &&
+          isAllowedByAdminConfig('admin', 'channel'),
+        models:
+          isSidebarModuleAllowed('admin', 'models') &&
+          isAllowedByAdminConfig('admin', 'models'),
+        deployment:
+          isSidebarModuleAllowed('admin', 'deployment') &&
+          isAllowedByAdminConfig('admin', 'deployment'),
+        redemption:
+          isSidebarModuleAllowed('admin', 'redemption') &&
+          isAllowedByAdminConfig('admin', 'redemption'),
+        user:
+          isSidebarModuleAllowed('admin', 'user') &&
+          isAllowedByAdminConfig('admin', 'user'),
+        setting:
+          isSidebarModuleAllowed('admin', 'setting') &&
+          isAllowedByAdminConfig('admin', 'setting'),
+      };
+    }
+
+    return defaultConfig;
+  };
+
   const saveSidebarSettings = async () => {
     setSidebarLoading(true);
     try {
@@ -153,27 +244,7 @@ const NotificationSettings = ({
   };
 
   const resetSidebarModules = () => {
-    const defaultConfig = {
-      chat: { enabled: true, playground: true, chat: true },
-      console: {
-        enabled: true,
-        detail: true,
-        token: true,
-        log: true,
-        midjourney: true,
-        task: true,
-      },
-      personal: { enabled: true, topup: true, personal: true },
-      admin: {
-        enabled: true,
-        channel: true,
-        models: true,
-        deployment: true,
-        redemption: true,
-        user: true,
-        setting: true,
-      },
-    };
+    const defaultConfig = generateDefaultConfig();
     setSidebarModulesUser(defaultConfig);
   };
 
@@ -182,18 +253,29 @@ const NotificationSettings = ({
     const loadSidebarConfigs = async () => {
       try {
         // 获取管理员全局配置
+        let mergedAdminConf = mergeAdminConfig(null);
         if (statusState?.status?.SidebarModulesAdmin) {
           try {
             const adminConf = JSON.parse(
               statusState.status.SidebarModulesAdmin,
             );
-            setAdminConfig(mergeAdminConfig(adminConf));
+            mergedAdminConf = mergeAdminConfig(adminConf);
           } catch (error) {
-            setAdminConfig(mergeAdminConfig(null));
+            mergedAdminConf = mergeAdminConfig(null);
           }
-        } else {
-          setAdminConfig(mergeAdminConfig(null));
         }
+        setAdminConfig(mergedAdminConf);
+
+        const isAllowedByAdminConfig = (sectionKey, moduleKey = null) => {
+          if (!mergedAdminConf) return true;
+          if (moduleKey) {
+            return (
+              mergedAdminConf[sectionKey]?.enabled &&
+              mergedAdminConf[sectionKey]?.[moduleKey]
+            );
+          }
+          return mergedAdminConf[sectionKey]?.enabled;
+        };
 
         // 获取用户个人配置
         const userRes = await API.get('/api/user/self');
@@ -204,10 +286,32 @@ const NotificationSettings = ({
           } else {
             userConf = userRes.data.data.sidebar_modules;
           }
-          setSidebarModulesUser(userConf);
+          const filteredUserConf = {};
+          Object.keys(userConf).forEach((sectionKey) => {
+            if (
+              isSidebarSectionAllowed(sectionKey) &&
+              isAllowedByAdminConfig(sectionKey)
+            ) {
+              filteredUserConf[sectionKey] = { ...userConf[sectionKey] };
+              Object.keys(userConf[sectionKey]).forEach((moduleKey) => {
+                if (
+                  moduleKey !== 'enabled' &&
+                  (!isSidebarModuleAllowed(sectionKey, moduleKey) ||
+                    !isAllowedByAdminConfig(sectionKey, moduleKey))
+                ) {
+                  delete filteredUserConf[sectionKey][moduleKey];
+                }
+              });
+            }
+          });
+          setSidebarModulesUser(filteredUserConf);
+        } else {
+          const defaultConfig = generateDefaultConfig(mergedAdminConf);
+          setSidebarModulesUser(defaultConfig);
         }
       } catch (error) {
         console.error('加载边栏配置失败:', error);
+        setSidebarModulesUser(generateDefaultConfig());
       }
     };
 
@@ -316,8 +420,10 @@ const NotificationSettings = ({
     })
     .map((section) => ({
       ...section,
-      modules: section.modules.filter((module) =>
-        isSidebarModuleAllowed(section.key, module.key),
+      modules: section.modules.filter(
+        (module) =>
+          isSidebarModuleAllowed(section.key, module.key) &&
+          isAllowedByAdmin(section.key, module.key),
       ),
     }))
     .filter(

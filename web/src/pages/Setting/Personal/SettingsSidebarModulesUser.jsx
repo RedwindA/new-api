@@ -65,49 +65,95 @@ export default function SettingsSidebarModulesUser() {
   }
 
   // 根据用户权限生成默认配置
-  const generateDefaultConfig = () => {
+  const generateDefaultConfig = (baseAdminConfig = adminConfig) => {
     const defaultConfig = {};
+    const isAllowedByAdminConfig = (sectionKey, moduleKey = null) => {
+      if (!baseAdminConfig) return true;
+      if (moduleKey) {
+        return (
+          baseAdminConfig[sectionKey]?.enabled &&
+          baseAdminConfig[sectionKey]?.[moduleKey]
+        );
+      }
+      return baseAdminConfig[sectionKey]?.enabled;
+    };
 
     // 聊天区域 - 所有用户都可以访问
-    if (isSidebarSectionAllowed('chat')) {
+    if (isSidebarSectionAllowed('chat') && isAllowedByAdminConfig('chat')) {
       defaultConfig.chat = {
         enabled: true,
-        playground: isSidebarModuleAllowed('chat', 'playground'),
-        chat: isSidebarModuleAllowed('chat', 'chat'),
+        playground:
+          isSidebarModuleAllowed('chat', 'playground') &&
+          isAllowedByAdminConfig('chat', 'playground'),
+        chat:
+          isSidebarModuleAllowed('chat', 'chat') &&
+          isAllowedByAdminConfig('chat', 'chat'),
       };
     }
 
     // 控制台区域 - 所有用户都可以访问
-    if (isSidebarSectionAllowed('console')) {
+    if (
+      isSidebarSectionAllowed('console') &&
+      isAllowedByAdminConfig('console')
+    ) {
       defaultConfig.console = {
         enabled: true,
-        detail: isSidebarModuleAllowed('console', 'detail'),
-        token: isSidebarModuleAllowed('console', 'token'),
-        log: isSidebarModuleAllowed('console', 'log'),
-        midjourney: isSidebarModuleAllowed('console', 'midjourney'),
-        task: isSidebarModuleAllowed('console', 'task'),
+        detail:
+          isSidebarModuleAllowed('console', 'detail') &&
+          isAllowedByAdminConfig('console', 'detail'),
+        token:
+          isSidebarModuleAllowed('console', 'token') &&
+          isAllowedByAdminConfig('console', 'token'),
+        log:
+          isSidebarModuleAllowed('console', 'log') &&
+          isAllowedByAdminConfig('console', 'log'),
+        midjourney:
+          isSidebarModuleAllowed('console', 'midjourney') &&
+          isAllowedByAdminConfig('console', 'midjourney'),
+        task:
+          isSidebarModuleAllowed('console', 'task') &&
+          isAllowedByAdminConfig('console', 'task'),
       };
     }
 
     // 个人中心区域 - 所有用户都可以访问
-    if (isSidebarSectionAllowed('personal')) {
+    if (
+      isSidebarSectionAllowed('personal') &&
+      isAllowedByAdminConfig('personal')
+    ) {
       defaultConfig.personal = {
         enabled: true,
-        topup: isSidebarModuleAllowed('personal', 'topup'),
-        personal: isSidebarModuleAllowed('personal', 'personal'),
+        topup:
+          isSidebarModuleAllowed('personal', 'topup') &&
+          isAllowedByAdminConfig('personal', 'topup'),
+        personal:
+          isSidebarModuleAllowed('personal', 'personal') &&
+          isAllowedByAdminConfig('personal', 'personal'),
       };
     }
 
     // 管理员区域 - 只有管理员可以访问
-    if (isSidebarSectionAllowed('admin')) {
+    if (isSidebarSectionAllowed('admin') && isAllowedByAdminConfig('admin')) {
       defaultConfig.admin = {
         enabled: true,
-        channel: isSidebarModuleAllowed('admin', 'channel'),
-        models: isSidebarModuleAllowed('admin', 'models'),
-        deployment: isSidebarModuleAllowed('admin', 'deployment'),
-        redemption: isSidebarModuleAllowed('admin', 'redemption'),
-        user: isSidebarModuleAllowed('admin', 'user'),
-        setting: isSidebarModuleAllowed('admin', 'setting'),
+        channel:
+          isSidebarModuleAllowed('admin', 'channel') &&
+          isAllowedByAdminConfig('admin', 'channel'),
+        models:
+          isSidebarModuleAllowed('admin', 'models') &&
+          isAllowedByAdminConfig('admin', 'models'),
+        deployment:
+          isSidebarModuleAllowed('admin', 'deployment') &&
+          isAllowedByAdminConfig('admin', 'deployment'),
+        redemption:
+          isSidebarModuleAllowed('admin', 'redemption') &&
+          isAllowedByAdminConfig('admin', 'redemption'),
+        user:
+          isSidebarModuleAllowed('admin', 'user') &&
+          isAllowedByAdminConfig('admin', 'user'),
+        setting:
+          isSidebarModuleAllowed('admin', 'setting') &&
+          isAllowedByAdminConfig('admin', 'setting'),
       };
     }
 
@@ -197,27 +243,36 @@ export default function SettingsSidebarModulesUser() {
     const loadConfigs = async () => {
       try {
         // 获取管理员全局配置
+        let mergedAdminConf = mergeAdminConfig(null);
         if (statusState?.status?.SidebarModulesAdmin) {
           try {
             const adminConf = JSON.parse(
               statusState.status.SidebarModulesAdmin,
             );
-            const mergedAdminConf = mergeAdminConfig(adminConf);
-            setAdminConfig(mergedAdminConf);
+            mergedAdminConf = mergeAdminConfig(adminConf);
             console.log('加载管理员边栏配置:', mergedAdminConf);
           } catch (error) {
-            const mergedAdminConf = mergeAdminConfig(null);
-            setAdminConfig(mergedAdminConf);
+            mergedAdminConf = mergeAdminConfig(null);
             console.log(
               '加载管理员边栏配置失败，使用默认配置:',
               mergedAdminConf,
             );
           }
         } else {
-          const mergedAdminConf = mergeAdminConfig(null);
-          setAdminConfig(mergedAdminConf);
           console.log('管理员边栏配置缺失，使用默认配置:', mergedAdminConf);
         }
+        setAdminConfig(mergedAdminConf);
+
+        const isAllowedByAdminConfig = (sectionKey, moduleKey = null) => {
+          if (!mergedAdminConf) return true;
+          if (moduleKey) {
+            return (
+              mergedAdminConf[sectionKey]?.enabled &&
+              mergedAdminConf[sectionKey]?.[moduleKey]
+            );
+          }
+          return mergedAdminConf[sectionKey]?.enabled;
+        };
 
         // 获取用户个人配置
         const userRes = await API.get('/api/user/self');
@@ -234,13 +289,17 @@ export default function SettingsSidebarModulesUser() {
           // 确保用户配置也经过权限过滤
           const filteredUserConf = {};
           Object.keys(userConf).forEach((sectionKey) => {
-            if (isSidebarSectionAllowed(sectionKey)) {
+            if (
+              isSidebarSectionAllowed(sectionKey) &&
+              isAllowedByAdminConfig(sectionKey)
+            ) {
               filteredUserConf[sectionKey] = { ...userConf[sectionKey] };
               // 过滤不允许的模块
               Object.keys(userConf[sectionKey]).forEach((moduleKey) => {
                 if (
                   moduleKey !== 'enabled' &&
-                  !isSidebarModuleAllowed(sectionKey, moduleKey)
+                  (!isSidebarModuleAllowed(sectionKey, moduleKey) ||
+                    !isAllowedByAdminConfig(sectionKey, moduleKey))
                 ) {
                   delete filteredUserConf[sectionKey][moduleKey];
                 }
@@ -251,7 +310,7 @@ export default function SettingsSidebarModulesUser() {
           console.log('权限过滤后的用户配置:', filteredUserConf);
         } else {
           // 如果用户没有配置，使用权限过滤后的默认配置
-          const defaultConfig = generateDefaultConfig();
+          const defaultConfig = generateDefaultConfig(mergedAdminConf);
           setSidebarModulesUser(defaultConfig);
           console.log('用户无配置，使用默认配置:', defaultConfig);
         }
@@ -364,8 +423,10 @@ export default function SettingsSidebarModulesUser() {
     })
     .map((section) => ({
       ...section,
-      modules: section.modules.filter((module) =>
-        isSidebarModuleAllowed(section.key, module.key),
+      modules: section.modules.filter(
+        (module) =>
+          isSidebarModuleAllowed(section.key, module.key) &&
+          isAllowedByAdmin(section.key, module.key),
       ),
     }))
     .filter(
