@@ -281,11 +281,11 @@ const ModelSelectModal = ({
                 })}
               </Typography.Text>
             </div>
-            <div className='grid grid-cols-2 gap-x-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-4'>
               {categoryData.models.map((model) => (
                 <Checkbox key={model} value={model} className='my-1'>
-                  <span className='flex items-center gap-2'>
-                    <span>{model}</span>
+                  <span className='flex items-center gap-2 min-w-0'>
+                    <span className='truncate'>{model}</span>
                     {redirectOnlySet.has(normalizeModelName(model)) && (
                       <Tooltip
                         position='top'
