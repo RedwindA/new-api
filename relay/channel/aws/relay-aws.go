@@ -2,7 +2,6 @@ package aws
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -39,11 +38,36 @@ func getAwsErrorStatusCode(err error) int {
 	return http.StatusInternalServerError
 }
 
-func newAwsInvokeContext() (context.Context, context.CancelFunc) {
-	if common.RelayTimeout <= 0 {
+func resolveAwsInvokeTimeoutSeconds(info *relaycommon.RelayInfo) int {
+	timeoutSeconds := common.RelayTimeout
+	if info != nil && !info.IsStream && common.RelayNonStreamTimeout > 0 {
+		timeoutSeconds = common.RelayNonStreamTimeout
+	}
+	if timeoutSeconds < 0 {
+		return 0
+	}
+	return timeoutSeconds
+}
+
+func newAwsInvokeContext(info *relaycommon.RelayInfo) (context.Context, context.CancelFunc) {
+	timeoutSeconds := resolveAwsInvokeTimeoutSeconds(info)
+	if timeoutSeconds <= 0 {
 		return context.Background(), func() {}
 	}
-	return context.WithTimeout(context.Background(), time.Duration(common.RelayTimeout)*time.Second)
+	return context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
+}
+
+func getAwsClientWithTimeout(client *http.Client, timeoutSeconds int) *http.Client {
+	if client == nil {
+		return nil
+	}
+	timeout := time.Duration(timeoutSeconds) * time.Second
+	if client.Timeout == timeout {
+		return client
+	}
+	cloned := *client
+	cloned.Timeout = timeout
+	return &cloned
 }
 
 func newAwsClient(c *gin.Context, info *relaycommon.RelayInfo) (*bedrockruntime.Client, error) {
@@ -59,6 +83,7 @@ func newAwsClient(c *gin.Context, info *relaycommon.RelayInfo) (*bedrockruntime.
 	} else {
 		httpClient = service.GetHttpClient()
 	}
+	httpClient = getAwsClientWithTimeout(httpClient, resolveAwsInvokeTimeoutSeconds(info))
 
 	awsSecret := strings.Split(info.ApiKey, "|")
 	var client *bedrockruntime.Client
@@ -211,7 +236,7 @@ func getAwsModelID(requestModel string) string {
 
 func awsHandler(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (*types.NewAPIError, *dto.Usage) {
 
-	ctx, cancel := newAwsInvokeContext()
+	ctx, cancel := newAwsInvokeContext(info)
 	defer cancel()
 
 	awsResp, err := a.AwsClient.InvokeModel(ctx, a.AwsReq.(*bedrockruntime.InvokeModelInput))
@@ -241,7 +266,7 @@ func awsHandler(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (*types
 }
 
 func awsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (*types.NewAPIError, *dto.Usage) {
-	ctx, cancel := newAwsInvokeContext()
+	ctx, cancel := newAwsInvokeContext(info)
 	defer cancel()
 
 	awsResp, err := a.AwsClient.InvokeModelWithResponseStream(ctx, a.AwsReq.(*bedrockruntime.InvokeModelWithResponseStreamInput))
@@ -284,7 +309,7 @@ func awsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (
 // Nova模型处理函数
 func handleNovaRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (*types.NewAPIError, *dto.Usage) {
 
-	ctx, cancel := newAwsInvokeContext()
+	ctx, cancel := newAwsInvokeContext(info)
 	defer cancel()
 
 	awsResp, err := a.AwsClient.InvokeModel(ctx, a.AwsReq.(*bedrockruntime.InvokeModelInput))
@@ -309,7 +334,7 @@ func handleNovaRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) 
 		} `json:"usage"`
 	}
 
-	if err := json.Unmarshal(awsResp.Body, &novaResp); err != nil {
+	if err := common.Unmarshal(awsResp.Body, &novaResp); err != nil {
 		return types.NewError(errors.Wrap(err, "unmarshal nova response"), types.ErrorCodeBadResponseBody), nil
 	}
 

@@ -317,9 +317,10 @@ docker run --name new-api -d --restart always \
 |--------|------|--------|
 | `SESSION_SECRET` | セッションシークレット（マルチマシンデプロイに必須） | - |
 | `CRYPTO_SECRET` | 暗号化シークレット（Redisに必須） | - |
-| `SQL_DSN** | データベース接続文字列 | - |
+| `SQL_DSN` | データベース接続文字列 | - |
 | `REDIS_CONN_STRING` | Redis接続文字列 | - |
 | `STREAMING_TIMEOUT` | ストリーミング応答のタイムアウト時間（秒） | `300` |
+| `RELAY_NON_STREAM_TIMEOUT` | 標準 relay の非ストリーミング要求専用タイムアウト（秒）。`0` は `RELAY_TIMEOUT` にフォールバック | `0` |
 | `STREAM_SCANNER_MAX_BUFFER_MB` | ストリームスキャナの1行あたりバッファ上限（MB）。4K画像など巨大なbase64 `data:` ペイロードを扱う場合は値を増加させてください | `64` |
 | `MAX_REQUEST_BODY_MB` | リクエストボディ最大サイズ（MB、**解凍後**に計測。巨大リクエスト/zip bomb によるメモリ枯渇を防止）。超過時は `413` | `32` |
 | `AZURE_DEFAULT_API_VERSION` | Azure APIバージョン | `2025-04-01-preview` |

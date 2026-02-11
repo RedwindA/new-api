@@ -124,6 +124,9 @@ var BatchUpdateEnabled = false
 var BatchUpdateInterval int
 
 var RelayTimeout int // unit is second
+// RelayNonStreamTimeout controls timeout for non-stream standard relay requests only.
+// 0 means fallback to RelayTimeout.
+var RelayNonStreamTimeout int // unit is second
 
 var RelayMaxIdleConns int
 var RelayMaxIdleConnsPerHost int

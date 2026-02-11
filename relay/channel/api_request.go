@@ -294,7 +294,7 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
-	resp, err := doRequest(c, req, info)
+	resp, err := doRequest(c, req, info, true)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
 	}
@@ -327,7 +327,7 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
-	resp, err := doRequest(c, req, info)
+	resp, err := doRequest(c, req, info, true)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
 	}
@@ -464,9 +464,36 @@ func sendPingData(c *gin.Context, mutex *sync.Mutex) error {
 }
 
 func DoRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
-	return doRequest(c, req, info)
+	return doRequest(c, req, info, true)
 }
-func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
+
+func resolveRequestTimeoutSeconds(info *common.RelayInfo, applyNonStreamTimeout bool) int {
+	timeoutSeconds := common2.RelayTimeout
+	if applyNonStreamTimeout && info != nil && !info.IsStream {
+		if common2.RelayNonStreamTimeout > 0 {
+			timeoutSeconds = common2.RelayNonStreamTimeout
+		}
+	}
+	if timeoutSeconds < 0 {
+		return 0
+	}
+	return timeoutSeconds
+}
+
+func getRequestClientWithTimeout(client *http.Client, timeoutSeconds int) *http.Client {
+	if client == nil {
+		return nil
+	}
+	timeout := time.Duration(timeoutSeconds) * time.Second
+	if client.Timeout == timeout {
+		return client
+	}
+	cloned := *client
+	cloned.Timeout = timeout
+	return &cloned
+}
+
+func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo, applyNonStreamTimeout bool) (*http.Response, error) {
 	var client *http.Client
 	var err error
 	if info.ChannelSetting.Proxy != "" {
@@ -477,6 +504,7 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	} else {
 		client = service.GetHttpClient()
 	}
+	client = getRequestClientWithTimeout(client, resolveRequestTimeoutSeconds(info, applyNonStreamTimeout))
 
 	var stopPinger context.CancelFunc
 	if info.IsStream {
@@ -529,7 +557,7 @@ func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, req
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
 	}
-	resp, err := doRequest(c, req, info)
+	resp, err := doRequest(c, req, info, false)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
 	}
