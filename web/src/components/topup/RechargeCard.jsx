@@ -115,6 +115,61 @@ const RechargeCard = ({
       setActiveTab('topup');
     }
   }, [shouldShowSubscription, activeTab]);
+
+  const renderRedeemCard = () => (
+    <Card
+      className='!rounded-xl w-full'
+      title={
+        <Text type='tertiary' strong>
+          {t('兑换码充值')}
+        </Text>
+      }
+    >
+      <Form
+        getFormApi={(api) => (redeemFormApiRef.current = api)}
+        initValues={{ redemptionCode: redemptionCode }}
+      >
+        <Form.Input
+          field='redemptionCode'
+          noLabel={true}
+          placeholder={t('请输入兑换码')}
+          value={redemptionCode}
+          onChange={(value) => setRedemptionCode(value)}
+          prefix={<IconGift />}
+          suffix={
+            <div className='flex items-center gap-2'>
+              <Button
+                type='primary'
+                theme='solid'
+                onClick={topUp}
+                loading={isSubmitting}
+              >
+                {t('兑换额度')}
+              </Button>
+            </div>
+          }
+          showClear
+          style={{ width: '100%' }}
+          extraText={
+            topUpLink && (
+              <Text type='tertiary'>
+                {t('在找兑换码？')}
+                <Text
+                  type='secondary'
+                  underline
+                  className='cursor-pointer'
+                  onClick={openTopUpLink}
+                >
+                  {t('购买兑换码')}
+                </Text>
+              </Text>
+            )
+          }
+        />
+      </Form>
+    </Card>
+  );
+
   const topupContent = (
     <Space vertical style={{ width: '100%' }}>
       {/* 统计数据 */}
@@ -523,58 +578,7 @@ const RechargeCard = ({
         )}
       </Card>
 
-      {/* 兑换码充值 */}
-      <Card
-        className='!rounded-xl w-full'
-        title={
-          <Text type='tertiary' strong>
-            {t('兑换码充值')}
-          </Text>
-        }
-      >
-        <Form
-          getFormApi={(api) => (redeemFormApiRef.current = api)}
-          initValues={{ redemptionCode: redemptionCode }}
-        >
-          <Form.Input
-            field='redemptionCode'
-            noLabel={true}
-            placeholder={t('请输入兑换码')}
-            value={redemptionCode}
-            onChange={(value) => setRedemptionCode(value)}
-            prefix={<IconGift />}
-            suffix={
-              <div className='flex items-center gap-2'>
-                <Button
-                  type='primary'
-                  theme='solid'
-                  onClick={topUp}
-                  loading={isSubmitting}
-                >
-                  {t('兑换额度')}
-                </Button>
-              </div>
-            }
-            showClear
-            style={{ width: '100%' }}
-            extraText={
-              topUpLink && (
-                <Text type='tertiary'>
-                  {t('在找兑换码？')}
-                  <Text
-                    type='secondary'
-                    underline
-                    className='cursor-pointer'
-                    onClick={openTopUpLink}
-                  >
-                    {t('购买兑换码')}
-                  </Text>
-                </Text>
-              )
-            }
-          />
-        </Form>
-      </Card>
+      {(!shouldShowSubscription || activeTab === 'topup') && renderRedeemCard()}
     </Space>
   );
 
@@ -614,21 +618,24 @@ const RechargeCard = ({
             itemKey='subscription'
           >
             <div className='py-2'>
-              <SubscriptionPlansCard
-                t={t}
-                loading={subscriptionLoading}
-                plans={subscriptionPlans}
-                payMethods={payMethods}
-                enableOnlineTopUp={enableOnlineTopUp}
-                enableStripeTopUp={enableStripeTopUp}
-                enableCreemTopUp={enableCreemTopUp}
-                billingPreference={billingPreference}
-                onChangeBillingPreference={onChangeBillingPreference}
-                activeSubscriptions={activeSubscriptions}
-                allSubscriptions={allSubscriptions}
-                reloadSubscriptionSelf={reloadSubscriptionSelf}
-                withCard={false}
-              />
+              <Space vertical style={{ width: '100%' }}>
+                <SubscriptionPlansCard
+                  t={t}
+                  loading={subscriptionLoading}
+                  plans={subscriptionPlans}
+                  payMethods={payMethods}
+                  enableOnlineTopUp={enableOnlineTopUp}
+                  enableStripeTopUp={enableStripeTopUp}
+                  enableCreemTopUp={enableCreemTopUp}
+                  billingPreference={billingPreference}
+                  onChangeBillingPreference={onChangeBillingPreference}
+                  activeSubscriptions={activeSubscriptions}
+                  allSubscriptions={allSubscriptions}
+                  reloadSubscriptionSelf={reloadSubscriptionSelf}
+                  withCard={false}
+                />
+                {activeTab === 'subscription' && renderRedeemCard()}
+              </Space>
             </div>
           </TabPane>
           <TabPane

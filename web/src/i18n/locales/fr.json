@@ -449,6 +449,8 @@
     "充值额度": "Quota de recharge",
     "兑换人ID": "ID du demandeur",
     "兑换成功！": "Échange réussi !",
+    "兑换订阅成功": "Abonnement échangé avec succès",
+    "兑换已成功，账户信息刷新失败，请稍后手动刷新页面": "Échange réussi, mais l'actualisation du compte a échoué. Veuillez rafraîchir la page manuellement plus tard.",
     "兑换码充值": "Recharge par code d'échange",
     "清理不活跃缓存": "Nettoyer le cache inactif",
     "兑换码创建成功": "Code d'échange créé",

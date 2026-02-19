@@ -447,6 +447,8 @@
     "充值额度": "Top Up Quota",
     "兑换人ID": "Redeemer ID",
     "兑换成功！": "Redemption successful!",
+    "兑换订阅成功": "Subscription redeemed successfully",
+    "兑换已成功，账户信息刷新失败，请稍后手动刷新页面": "Redemption succeeded, but account refresh failed. Please refresh the page manually later.",
     "兑换码充值": "Redemption code recharge",
     "清理不活跃缓存": "Clean up inactive cache",
     "兑换码创建成功": "Redemption Code Created",

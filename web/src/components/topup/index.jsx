@@ -117,18 +117,54 @@ const TopUp = () => {
       });
       const { success, message, data } = res.data;
       if (success) {
-        showSuccess(t('兑换成功！'));
-        Modal.success({
-          title: t('兑换成功！'),
-          content: t('成功兑换额度：') + renderQuota(data),
-          centered: true,
-        });
-        if (userState.user) {
-          const updatedUser = {
-            ...userState.user,
-            quota: userState.user.quota + data,
-          };
-          userDispatch({ type: 'login', payload: updatedUser });
+        const normalizedData =
+          data && typeof data === 'object'
+            ? data
+            : {
+                type: 'quota',
+                quota: Number(data) || 0,
+                plan_id: 0,
+                plan_title: '',
+              };
+        const redeemType =
+          normalizedData.type ||
+          (Number(normalizedData.plan_id) > 0 ? 'subscription' : 'quota');
+        if (redeemType === 'subscription') {
+          const planTitle = normalizedData.plan_title || t('订阅套餐');
+          showSuccess(t('兑换订阅成功'));
+          Modal.success({
+            title: t('兑换订阅成功'),
+            content: `${t('订阅套餐')}：${planTitle}`,
+            centered: true,
+          });
+          const refreshResults = await Promise.allSettled([
+            getSubscriptionSelf(),
+            getUserQuota(),
+          ]);
+          if (
+            refreshResults.some(
+              (result) =>
+                result.status === 'rejected' ||
+                (result.status === 'fulfilled' && result.value === false),
+            )
+          ) {
+            showInfo(t('兑换已成功，账户信息刷新失败，请稍后手动刷新页面'));
+          }
+        } else {
+          const quota = Number(normalizedData.quota) || 0;
+          showSuccess(t('兑换成功！'));
+          Modal.success({
+            title: t('兑换成功！'),
+            content: t('成功兑换额度：') + renderQuota(quota),
+            centered: true,
+          });
+          if (userState.user) {
+            const updatedUser = {
+              ...userState.user,
+              quota: userState.user.quota + quota,
+            };
+            userDispatch({ type: 'login', payload: updatedUser });
+          }
         }
         setRedemptionCode('');
       } else {
@@ -316,12 +352,18 @@ const TopUp = () => {
   };
 
   const getUserQuota = async () => {
-    let res = await API.get(`/api/user/self`);
-    const { success, message, data } = res.data;
-    if (success) {
-      userDispatch({ type: 'login', payload: data });
-    } else {
+    try {
+      let res = await API.get(`/api/user/self`);
+      const { success, message, data } = res.data;
+      if (success) {
+        userDispatch({ type: 'login', payload: data });
+        return true;
+      }
       showError(message);
+      return false;
+    } catch (error) {
+      showError(t('请求失败'));
+      return false;
     }
   };
 
@@ -352,9 +394,11 @@ const TopUp = () => {
         // All subscriptions (including expired)
         const allSubs = res.data.data?.all_subscriptions || [];
         setAllSubscriptions(allSubs);
+        return true;
       }
+      return false;
     } catch (e) {
-      // ignore
+      return false;
     }
   };
 

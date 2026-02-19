@@ -446,6 +446,8 @@
     "充值额度": "Hạn ngạch nạp tiền",
     "兑换人ID": "ID người đổi",
     "兑换成功！": "Đổi thành công!",
+    "兑换订阅成功": "Đổi gói đăng ký thành công",
+    "兑换已成功，账户信息刷新失败，请稍后手动刷新页面": "Đổi thành công, nhưng làm mới thông tin tài khoản thất bại. Vui lòng làm mới trang thủ công sau.",
     "兑换码充值": "Nạp tiền bằng mã đổi thưởng",
     "清理不活跃缓存": "Xóa cache không hoạt động",
     "兑换码创建成功": "Đã tạo mã đổi thưởng",
