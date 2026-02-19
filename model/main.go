@@ -280,6 +280,12 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	if err := ensureRedemptionPlanColumn(); err != nil {
+		return err
+	}
+	if err := ensureRedemptionIDSequenceForPostgreSQL(); err != nil {
+		return err
+	}
 	if common.UsingSQLite {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
 			return err
@@ -348,6 +354,12 @@ func migrateDBFast() error {
 			return err
 		}
 	}
+	if err := ensureRedemptionPlanColumn(); err != nil {
+		return err
+	}
+	if err := ensureRedemptionIDSequenceForPostgreSQL(); err != nil {
+		return err
+	}
 	if common.UsingSQLite {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
 			return err
@@ -364,6 +376,61 @@ func migrateDBFast() error {
 func migrateLOGDB() error {
 	var err error
 	if err = LOG_DB.AutoMigrate(&Log{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ensureRedemptionPlanColumn() error {
+	if DB.Migrator().HasColumn(&Redemption{}, "plan_id") {
+		return nil
+	}
+	return DB.Migrator().AddColumn(&Redemption{}, "PlanId")
+}
+
+func ensureRedemptionIDSequenceForPostgreSQL() error {
+	if !common.UsingPostgreSQL {
+		return nil
+	}
+	tableName := "redemptions"
+	if !DB.Migrator().HasTable(tableName) {
+		return nil
+	}
+	var columnDefault string
+	if err := DB.Raw(`SELECT COALESCE(column_default, '') FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = 'id'`, tableName).Scan(&columnDefault).Error; err != nil {
+		return err
+	}
+	if strings.Contains(columnDefault, "nextval(") {
+		return nil
+	}
+
+	seqName := "redemptions_id_seq"
+	if err := DB.Exec(`CREATE SEQUENCE IF NOT EXISTS "` + seqName + `"`).Error; err != nil {
+		return err
+	}
+	if err := DB.Exec(`ALTER TABLE "` + tableName + `" ALTER COLUMN "id" SET DEFAULT nextval('` + seqName + `'::regclass)`).Error; err != nil {
+		return err
+	}
+	// Try to align sequence owner with table owner so OWNED BY can be applied.
+	var tableOwner string
+	if err := DB.Raw(`SELECT tableowner FROM pg_catalog.pg_tables WHERE schemaname = current_schema() AND tablename = ?`, tableName).Scan(&tableOwner).Error; err != nil {
+		return err
+	}
+	var sequenceOwner string
+	if err := DB.Raw(`SELECT pg_catalog.pg_get_userbyid(c.relowner) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema() AND c.relname = ? AND c.relkind = 'S'`, seqName).Scan(&sequenceOwner).Error; err != nil {
+		return err
+	}
+	if tableOwner != "" && sequenceOwner != "" && tableOwner != sequenceOwner {
+		quotedOwner := `"` + strings.ReplaceAll(tableOwner, `"`, `""`) + `"`
+		if err := DB.Exec(`ALTER SEQUENCE "` + seqName + `" OWNER TO ` + quotedOwner).Error; err != nil {
+			common.SysLog("warning: failed to set owner for sequence " + seqName + ": " + err.Error())
+		}
+	}
+	// Keep sequence lifecycle coupled with table column when PostgreSQL ownership rules permit it.
+	if err := DB.Exec(`ALTER SEQUENCE "` + seqName + `" OWNED BY "` + tableName + `"."id"`).Error; err != nil {
+		common.SysLog("warning: failed to set sequence ownership link for " + tableName + ".id: " + err.Error())
+	}
+	if err := DB.Exec(`SELECT setval('` + seqName + `', COALESCE((SELECT MAX("id") FROM "` + tableName + `"), 0) + 1, false)`).Error; err != nil {
 		return err
 	}
 	return nil
