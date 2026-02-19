@@ -3255,6 +3255,8 @@
     "绑定订阅套餐": "Liên kết gói đăng ký",
     "绑定后会立即生成用户订阅（无需支付），有效期按套餐配置计算。": "Sau khi liên kết, sẽ tạo đăng ký cho người dùng ngay (không cần thanh toán); thời hạn theo cấu hình gói.",
     "订阅套餐": "Gói đăng ký",
+    "关联套餐": "Gói liên kết",
+    "钱包额度": "Hạn ngạch ví",
     "额度充值": "Nạp hạn mức",
     "优先订阅": "Ưu tiên đăng ký",
     "优先钱包": "Ưu tiên ví",

@@ -86,6 +86,7 @@ export const getRedemptionsColumns = ({
   redemptions,
   activePage,
   showDeleteRedemptionModal,
+  planTitleMap,
 }) => {
   return [
     {
@@ -105,9 +106,36 @@ export const getRedemptionsColumns = ({
       },
     },
     {
+      title: t('关联套餐'),
+      dataIndex: 'plan_id',
+      render: (text) => {
+        const planId = Number(text) || 0;
+        if (planId <= 0) {
+          return (
+            <Tag color='grey' shape='circle'>
+              {t('钱包额度')}
+            </Tag>
+          );
+        }
+        const title = planTitleMap?.[planId] || `#${planId}`;
+        return (
+          <Tag color='blue' shape='circle'>
+            {title}
+          </Tag>
+        );
+      },
+    },
+    {
       title: t('额度'),
       dataIndex: 'quota',
-      render: (text) => {
+      render: (text, record) => {
+        if ((Number(record?.plan_id) || 0) > 0) {
+          return (
+            <Tag color='cyan' shape='circle'>
+              {t('订阅套餐')}
+            </Tag>
+          );
+        }
         return (
           <div>
             <Tag color='grey' shape='circle'>

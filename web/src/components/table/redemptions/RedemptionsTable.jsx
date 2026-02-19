@@ -34,6 +34,7 @@ const RedemptionsTable = (redemptionsData) => {
     activePage,
     pageSize,
     tokenCount,
+    planTitleMap,
     compactMode,
     handlePageChange,
     rowSelection,
@@ -68,6 +69,7 @@ const RedemptionsTable = (redemptionsData) => {
       redemptions,
       activePage,
       showDeleteRedemptionModal,
+      planTitleMap,
     });
   }, [
     t,
@@ -79,6 +81,7 @@ const RedemptionsTable = (redemptionsData) => {
     redemptions,
     activePage,
     showDeleteRedemptionModal,
+    planTitleMap,
   ]);
 
   // Handle compact mode by removing fixed positioning

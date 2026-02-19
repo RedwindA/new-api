@@ -66,7 +66,7 @@ const RedemptionsPage = () => {
       <EditRedemptionModal
         refresh={refresh}
         editingRedemption={editingRedemption}
-        visiable={showEdit}
+        visible={showEdit}
         handleClose={closeEdit}
       />
 

@@ -39,6 +39,7 @@ export const useRedemptionsData = () => {
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
   const [tokenCount, setTokenCount] = useState(0);
   const [selectedKeys, setSelectedKeys] = useState([]);
+  const [planTitleMap, setPlanTitleMap] = useState({});
 
   // Edit state
   const [editingRedemption, setEditingRedemption] = useState({
@@ -68,6 +69,28 @@ export const useRedemptionsData = () => {
   // Set redemption data format
   const setRedemptionFormat = (redemptions) => {
     setRedemptions(redemptions);
+  };
+
+  const loadSubscriptionPlans = async () => {
+    try {
+      const res = await API.get('/api/subscription/admin/plans');
+      const { success, data } = res.data;
+      if (!success) {
+        setPlanTitleMap({});
+        return;
+      }
+      const nextMap = {};
+      (data || []).forEach((item) => {
+        const plan = item?.plan;
+        const planId = Number(plan?.id);
+        if (planId > 0) {
+          nextMap[planId] = plan?.title || `#${planId}`;
+        }
+      });
+      setPlanTitleMap(nextMap);
+    } catch (error) {
+      setPlanTitleMap({});
+    }
   };
 
   // Load redemption list
@@ -303,6 +326,10 @@ export const useRedemptionsData = () => {
       });
   }, [pageSize]);
 
+  useEffect(() => {
+    loadSubscriptionPlans().then();
+  }, []);
+
   return {
     // Data state
     redemptions,
@@ -311,6 +338,7 @@ export const useRedemptionsData = () => {
     activePage,
     pageSize,
     tokenCount,
+    planTitleMap,
     selectedKeys,
 
     // Edit state

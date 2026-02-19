@@ -53,14 +53,26 @@ const { Text, Title } = Typography;
 
 const EditRedemptionModal = (props) => {
   const { t } = useTranslation();
+  const redemptionNameMaxLength = 20;
   const isEdit = props.editingRedemption.id !== undefined;
   const [loading, setLoading] = useState(isEdit);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [planOptions, setPlanOptions] = useState([]);
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
+
+  const truncateName = (value) => {
+    const normalized = (value || '').trim();
+    if (!normalized) {
+      return '';
+    }
+    return Array.from(normalized).slice(0, redemptionNameMaxLength).join('');
+  };
 
   const getInitValues = () => ({
     name: '',
     quota: 100000,
+    plan_id: 0,
     count: 1,
     expired_time: null,
   });
@@ -79,11 +91,44 @@ const EditRedemptionModal = (props) => {
       } else {
         data.expired_time = new Date(data.expired_time * 1000);
       }
+      data.plan_id = Number(data.plan_id) || 0;
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
     }
     setLoading(false);
+  };
+
+  const loadPlanOptions = async () => {
+    setPlansLoading(true);
+    try {
+      const res = await API.get('/api/subscription/admin/plans');
+      const { success, message, data } = res.data;
+      if (!success) {
+        showError(message);
+        setPlanOptions([]);
+        return;
+      }
+      const options = (data || [])
+        .map((item) => {
+          const plan = item?.plan;
+          const planId = Number(plan?.id);
+          if (!planId) {
+            return null;
+          }
+          return {
+            label: plan?.title || `#${planId}`,
+            value: planId,
+          };
+        })
+        .filter(Boolean);
+      setPlanOptions(options);
+    } catch (error) {
+      setPlanOptions([]);
+      showError(t('请求失败'));
+    } finally {
+      setPlansLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -96,15 +141,36 @@ const EditRedemptionModal = (props) => {
     }
   }, [props.editingRedemption.id]);
 
+  useEffect(() => {
+    if (props.visible) {
+      loadPlanOptions();
+    }
+  }, [props.visible]);
+
   const submit = async (values) => {
+    let localInputs = { ...values };
+    localInputs.plan_id = parseInt(localInputs.plan_id, 10) || 0;
+    if (localInputs.plan_id > 0) {
+      localInputs.quota = 0;
+    } else {
+      localInputs.quota = parseInt(localInputs.quota, 10) || 0;
+    }
     let name = values.name;
     if (!isEdit && (!name || name === '')) {
-      name = renderQuota(values.quota);
+      if (localInputs.plan_id > 0) {
+        const matchedPlan = planOptions.find(
+          (option) => Number(option.value) === localInputs.plan_id,
+        );
+        name = truncateName(matchedPlan?.label || t('订阅套餐'));
+        if (!name) {
+          name = t('订阅套餐');
+        }
+      } else {
+        name = renderQuota(localInputs.quota);
+      }
     }
     setLoading(true);
-    let localInputs = { ...values };
-    localInputs.count = parseInt(localInputs.count) || 0;
-    localInputs.quota = parseInt(localInputs.quota) || 0;
+    localInputs.count = parseInt(localInputs.count, 10) || 0;
     localInputs.name = name;
     if (!localInputs.expired_time) {
       localInputs.expired_time = 0;
@@ -181,7 +247,7 @@ const EditRedemptionModal = (props) => {
           </Space>
         }
         bodyStyle={{ padding: '0' }}
-        visible={props.visiable}
+        visible={props.visible}
         width={isMobile ? '100%' : 600}
         footer={
           <div className='flex justify-end bg-white'>
@@ -285,40 +351,53 @@ const EditRedemptionModal = (props) => {
                   </div>
 
                   <Row gutter={12}>
-                    <Col span={12}>
-                      <Form.AutoComplete
-                        field='quota'
-                        label={t('额度')}
-                        placeholder={t('请输入额度')}
-                        style={{ width: '100%' }}
-                        type='number'
-                        rules={[
-                          { required: true, message: t('请输入额度') },
-                          {
-                            validator: (rule, v) => {
-                              const num = parseInt(v, 10);
-                              return num > 0
-                                ? Promise.resolve()
-                                : Promise.reject(t('额度必须大于0'));
-                            },
-                          },
-                        ]}
-                        extraText={renderQuotaWithPrompt(
-                          Number(values.quota) || 0,
-                        )}
-                        data={[
-                          { value: 500000, label: '1$' },
-                          { value: 5000000, label: '10$' },
-                          { value: 25000000, label: '50$' },
-                          { value: 50000000, label: '100$' },
-                          { value: 250000000, label: '500$' },
-                          { value: 500000000, label: '1000$' },
-                        ]}
+                    <Col span={24}>
+                      <Form.Select
+                        field='plan_id'
+                        label={t('关联套餐')}
+                        placeholder={t('选择订阅套餐')}
+                        optionList={planOptions}
+                        loading={plansLoading}
+                        filter
                         showClear
                       />
                     </Col>
-                    {!isEdit && (
+                    {(Number(values.plan_id) || 0) <= 0 && (
                       <Col span={12}>
+                        <Form.AutoComplete
+                          field='quota'
+                          label={t('额度')}
+                          placeholder={t('请输入额度')}
+                          style={{ width: '100%' }}
+                          type='number'
+                          rules={[
+                            { required: true, message: t('请输入额度') },
+                            {
+                              validator: (rule, v) => {
+                                const num = parseInt(v, 10);
+                                return num > 0
+                                  ? Promise.resolve()
+                                  : Promise.reject(t('额度必须大于0'));
+                              },
+                            },
+                          ]}
+                          extraText={renderQuotaWithPrompt(
+                            Number(values.quota) || 0,
+                          )}
+                          data={[
+                            { value: 500000, label: '1$' },
+                            { value: 5000000, label: '10$' },
+                            { value: 25000000, label: '50$' },
+                            { value: 50000000, label: '100$' },
+                            { value: 250000000, label: '500$' },
+                            { value: 500000000, label: '1000$' },
+                          ]}
+                          showClear
+                        />
+                      </Col>
+                    )}
+                    {!isEdit && (
+                      <Col span={(Number(values.plan_id) || 0) > 0 ? 24 : 12}>
                         <Form.InputNumber
                           field='count'
                           label={t('生成数量')}
