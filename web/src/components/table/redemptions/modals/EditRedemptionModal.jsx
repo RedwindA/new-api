@@ -72,7 +72,7 @@ const EditRedemptionModal = (props) => {
   const getInitValues = () => ({
     name: '',
     quota: 100000,
-    plan_id: 0,
+    plan_id: undefined,
     count: 1,
     expired_time: null,
   });
@@ -91,7 +91,8 @@ const EditRedemptionModal = (props) => {
       } else {
         data.expired_time = new Date(data.expired_time * 1000);
       }
-      data.plan_id = Number(data.plan_id) || 0;
+      const pid = Number(data.plan_id) || 0;
+      data.plan_id = pid > 0 ? pid : undefined;
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
