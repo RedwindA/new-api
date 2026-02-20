@@ -78,6 +78,7 @@ type GeneralOpenAIRequest struct {
 	//xai
 	SearchParameters json.RawMessage `json:"search_parameters,omitempty"`
 	// claude
+	CacheControl     json.RawMessage   `json:"cache_control,omitempty"`
 	WebSearchOptions *WebSearchOptions `json:"web_search_options,omitempty"`
 	// OpenRouter Params
 	Usage     json.RawMessage `json:"usage,omitempty"`

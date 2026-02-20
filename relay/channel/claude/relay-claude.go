@@ -129,6 +129,7 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 		TopP:          textRequest.TopP,
 		TopK:          textRequest.TopK,
 		Stream:        textRequest.Stream,
+		CacheControl:  textRequest.CacheControl,
 		Tools:         claudeTools,
 	}
 

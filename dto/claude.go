@@ -194,6 +194,7 @@ type ClaudeRequest struct {
 	Prompt            string          `json:"prompt,omitempty"`
 	System            any             `json:"system,omitempty"`
 	Messages          []ClaudeMessage `json:"messages,omitempty"`
+	CacheControl      json.RawMessage `json:"cache_control,omitempty"`
 	MaxTokens         uint            `json:"max_tokens,omitempty"`
 	MaxTokensToSample uint            `json:"max_tokens_to_sample,omitempty"`
 	StopSequences     []string        `json:"stop_sequences,omitempty"`
