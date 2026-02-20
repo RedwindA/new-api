@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 
 	"github.com/gin-gonic/gin"
@@ -81,11 +82,8 @@ func AddRedemption(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgSubscriptionInvalidId)
 		return
 	}
-	if redemption.PlanId > 0 {
-		if _, err = model.GetSubscriptionPlanById(redemption.PlanId); err != nil {
-			common.ApiErrorI18n(c, i18n.MsgSubscriptionInvalidId)
-			return
-		}
+	if redemption.PlanId > 0 && !validateRedemptionPlan(c, redemption.PlanId) {
+		return
 	}
 	if valid, msg := validateExpiredTime(c, redemption.ExpiredTime); !valid {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": msg})
@@ -162,11 +160,8 @@ func UpdateRedemption(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgSubscriptionInvalidId)
 			return
 		}
-		if redemption.PlanId > 0 {
-			if _, err = model.GetSubscriptionPlanById(redemption.PlanId); err != nil {
-				common.ApiErrorI18n(c, i18n.MsgSubscriptionInvalidId)
-				return
-			}
+		if redemption.PlanId > 0 && !validateRedemptionPlan(c, redemption.PlanId) {
+			return
 		}
 		// If you add more fields, please also update redemption.Update()
 		cleanRedemption.Name = redemption.Name
@@ -212,4 +207,18 @@ func validateExpiredTime(c *gin.Context, expired int64) (bool, string) {
 		return false, i18n.T(c, i18n.MsgRedemptionExpireTimeInvalid)
 	}
 	return true, ""
+}
+
+func validateRedemptionPlan(c *gin.Context, planId int) bool {
+	plan, err := model.GetSubscriptionPlanById(planId)
+	if err != nil {
+		logger.LogError(c.Request.Context(), "failed to get subscription plan by id: "+err.Error())
+		common.ApiErrorI18n(c, i18n.MsgSubscriptionInvalidId)
+		return false
+	}
+	if !plan.Enabled {
+		common.ApiErrorI18n(c, i18n.MsgSubscriptionNotEnabled)
+		return false
+	}
+	return true
 }

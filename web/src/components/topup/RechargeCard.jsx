@@ -96,7 +96,6 @@ const RechargeCard = ({
   reloadSubscriptionSelf,
 }) => {
   const onlineFormApiRef = useRef(null);
-  const redeemFormApiRef = useRef(null);
   const initialTabSetRef = useRef(false);
   const showAmountSkeleton = useMinimumLoadingTime(amountLoading);
   const [activeTab, setActiveTab] = useState('topup');
@@ -125,10 +124,7 @@ const RechargeCard = ({
         </Text>
       }
     >
-      <Form
-        getFormApi={(api) => (redeemFormApiRef.current = api)}
-        initValues={{ redemptionCode: redemptionCode }}
-      >
+      <Form initValues={{ redemptionCode: redemptionCode }}>
         <Form.Input
           field='redemptionCode'
           noLabel={true}

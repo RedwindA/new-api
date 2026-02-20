@@ -11,8 +11,15 @@ import (
 	"gorm.io/gorm"
 )
 
-// ErrRedeemFailed is returned when redemption fails due to database error
-var ErrRedeemFailed = errors.New("redeem.failed")
+var (
+	// ErrRedeemFailed is returned when redemption fails due to unexpected system/database errors.
+	ErrRedeemFailed = errors.New("redeem.failed")
+
+	errRedeemCodeInvalid = errors.New("无效的兑换码")
+	errRedeemCodeUsed    = errors.New("该兑换码已被使用")
+	errRedeemCodeExpired = errors.New("该兑换码已过期")
+	errRedeemPlanInvalid = errors.New("无效的订阅ID")
+)
 
 type Redemption struct {
 	Id           int            `json:"id" gorm:"primaryKey;autoIncrement"`
@@ -142,19 +149,22 @@ func Redeem(key string, userId int) (result *RedeemResult, err error) {
 	err = DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Set("gorm:query_option", "FOR UPDATE").Where(keyCol+" = ?", key).First(redemption).Error
 		if err != nil {
-			return errors.New("无效的兑换码")
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errRedeemCodeInvalid
+			}
+			return err
 		}
 		if redemption.Status != common.RedemptionCodeStatusEnabled {
-			return errors.New("该兑换码已被使用")
+			return errRedeemCodeUsed
 		}
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
-			return errors.New("该兑换码已过期")
+			return errRedeemCodeExpired
 		}
 		if redemption.PlanId > 0 {
 			plan := &SubscriptionPlan{}
 			if err = tx.Where("id = ?", redemption.PlanId).First(plan).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return errors.New("无效的订阅ID")
+					return errRedeemPlanInvalid
 				}
 				return err
 			}
@@ -181,6 +191,9 @@ func Redeem(key string, userId int) (result *RedeemResult, err error) {
 	})
 	if err != nil {
 		common.SysError("redemption failed: " + err.Error())
+		if isKnownRedeemBusinessError(err) {
+			return nil, err
+		}
 		return nil, ErrRedeemFailed
 	}
 	if upgradeGroup != "" {
@@ -190,6 +203,13 @@ func Redeem(key string, userId int) (result *RedeemResult, err error) {
 		RecordLog(userId, LogTypeTopup, logMessage)
 	}
 	return result, nil
+}
+
+func isKnownRedeemBusinessError(err error) bool {
+	return errors.Is(err, errRedeemCodeInvalid) ||
+		errors.Is(err, errRedeemCodeUsed) ||
+		errors.Is(err, errRedeemCodeExpired) ||
+		errors.Is(err, errRedeemPlanInvalid)
 }
 
 func (redemption *Redemption) Insert() error {
