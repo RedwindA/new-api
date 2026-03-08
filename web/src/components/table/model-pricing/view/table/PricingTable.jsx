@@ -40,7 +40,6 @@ const PricingTable = ({
   siteDisplayType,
   tokenUnit,
   displayPrice,
-  searchValue,
   showRatio,
   compactMode = false,
   openModelDetail,
@@ -74,24 +73,13 @@ const PricingTable = ({
     showRatio,
   ]);
 
-  // 更新列定义中的 searchValue
   const processedColumns = useMemo(() => {
-    const cols = columns.map((column) => {
-      if (column.dataIndex === 'model_name') {
-        return {
-          ...column,
-          filteredValue: searchValue ? [searchValue] : [],
-        };
-      }
-      return column;
-    });
-
     // Remove fixed property when in compact mode (mobile view)
     if (compactMode) {
-      return cols.map(({ fixed, ...rest }) => rest);
+      return columns.map(({ fixed, ...rest }) => rest);
     }
-    return cols;
-  }, [columns, searchValue, compactMode]);
+    return columns;
+  }, [columns, compactMode]);
 
   const ModelTable = useMemo(
     () => (

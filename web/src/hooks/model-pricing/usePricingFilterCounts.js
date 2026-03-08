@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useMemo } from 'react';
+import { parseSearchTerms } from '../../helpers/search';
+import { matchesModelPricingSearch } from './searchUtils';
 
 // 工具函数：将 tags 字符串转为小写去重数组
 const normalizeTags = (tags = '') =>
@@ -41,6 +43,7 @@ export const usePricingFilterCounts = ({
 }) => {
   // 均使用同一份模型列表，避免创建新引用
   const allModels = models;
+  const searchTerms = useMemo(() => parseSearchTerms(searchValue), [searchValue]);
 
   /**
    * 通用过滤函数
@@ -85,19 +88,11 @@ export const usePricingFilterCounts = ({
     }
 
     // 搜索
-    if (!ignore.includes('search') && searchValue) {
-      const term = searchValue.toLowerCase();
-      const tags = model.tags ? model.tags.toLowerCase() : '';
-      if (
-        !(
-          model.model_name.toLowerCase().includes(term) ||
-          (model.description &&
-            model.description.toLowerCase().includes(term)) ||
-          tags.includes(term) ||
-          (model.vendor_name && model.vendor_name.toLowerCase().includes(term))
-        )
-      )
-        return false;
+    if (
+      !ignore.includes('search') &&
+      !matchesModelPricingSearch(model, searchTerms)
+    ) {
+      return false;
     }
 
     return true;
@@ -112,7 +107,7 @@ export const usePricingFilterCounts = ({
       filterEndpointType,
       filterVendor,
       filterTag,
-      searchValue,
+      searchTerms,
     ],
   );
 
@@ -124,7 +119,7 @@ export const usePricingFilterCounts = ({
       filterQuotaType,
       filterVendor,
       filterTag,
-      searchValue,
+      searchTerms,
     ],
   );
 
@@ -136,7 +131,7 @@ export const usePricingFilterCounts = ({
       filterQuotaType,
       filterEndpointType,
       filterTag,
-      searchValue,
+      searchTerms,
     ],
   );
 
@@ -148,7 +143,7 @@ export const usePricingFilterCounts = ({
       filterQuotaType,
       filterEndpointType,
       filterVendor,
-      searchValue,
+      searchTerms,
     ],
   );
 
@@ -160,7 +155,7 @@ export const usePricingFilterCounts = ({
       filterEndpointType,
       filterVendor,
       filterTag,
-      searchValue,
+      searchTerms,
     ],
   );
 

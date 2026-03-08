@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { API, showError, showSuccess } from '../../../../helpers';
+import {
+  API,
+  showError,
+  showSuccess,
+  parseSearchTerms,
+  matchesSearchTerms,
+} from '../../../../helpers';
 
 export const PAGE_SIZE = 10;
 export const PRICE_SUFFIX = '$/1M tokens';
@@ -568,16 +574,15 @@ export function useModelPricingEditorState({
       : models;
   }, [filterMode, initialVisibleModelNames, models]);
 
+  const searchTerms = useMemo(() => parseSearchTerms(searchText), [searchText]);
+
   const filteredModels = useMemo(() => {
     return visibleModels.filter((model) => {
-      const keyword = searchText.trim().toLowerCase();
-      const keywordMatch = keyword
-        ? model.name.toLowerCase().includes(keyword)
-        : true;
+      const keywordMatch = matchesSearchTerms(model.name, searchTerms);
       const conflictMatch = conflictOnly ? model.hasConflict : true;
       return keywordMatch && conflictMatch;
     });
-  }, [conflictOnly, searchText, visibleModels]);
+  }, [conflictOnly, searchTerms, visibleModels]);
 
   const pagedData = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;

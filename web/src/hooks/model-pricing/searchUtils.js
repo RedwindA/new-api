@@ -17,17 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-export * from './history';
-export * from './auth';
-export * from './utils';
-export * from './base64';
-export * from './api';
-export * from './render';
-export * from './log';
-export * from './data';
-export * from './token';
-export * from './boolean';
-export * from './dashboard';
-export * from './passkey';
-export * from './statusCodeRules';
-export * from './search';
+import { matchesSearchTerms } from '../../helpers/search';
+
+export const matchesModelPricingSearch = (model, searchTerms) =>
+  matchesSearchTerms(
+    [model?.model_name, model?.description, model?.tags, model?.vendor_name],
+    searchTerms,
+  );

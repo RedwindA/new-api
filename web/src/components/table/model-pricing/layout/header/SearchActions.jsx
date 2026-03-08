@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { memo, useCallback } from 'react';
 import { Input, Button, Switch, Select, Divider } from '@douyinfe/semi-ui';
 import { IconSearch, IconCopy, IconFilter } from '@douyinfe/semi-icons';
+import SearchHelpTooltip from '../../../../common/ui/SearchHelpTooltip';
 
 const SearchActions = memo(
   ({
@@ -75,6 +76,7 @@ const SearchActions = memo(
             onCompositionEnd={handleCompositionEnd}
             onChange={handleChange}
             showClear
+            suffix={<SearchHelpTooltip />}
           />
         </div>
 

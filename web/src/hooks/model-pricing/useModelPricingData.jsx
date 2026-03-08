@@ -19,10 +19,18 @@ For commercial licensing, please contact support@quantumnous.com
 
 import { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { API, copy, showError, showInfo, showSuccess } from '../../helpers';
+import {
+  API,
+  copy,
+  showError,
+  showInfo,
+  showSuccess,
+} from '../../helpers';
+import { parseSearchTerms } from '../../helpers/search';
 import { Modal } from '@douyinfe/semi-ui';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
+import { matchesModelPricingSearch } from './searchUtils';
 
 export const useModelPricingData = () => {
   const { t } = useTranslation();
@@ -95,6 +103,8 @@ export const useModelPricingData = () => {
     }
   }, [siteDisplayType]);
 
+  const searchTerms = useMemo(() => parseSearchTerms(searchValue), [searchValue]);
+
   const filteredModels = useMemo(() => {
     let result = models;
 
@@ -143,24 +153,14 @@ export const useModelPricingData = () => {
     }
 
     // 搜索筛选
-    if (searchValue.length > 0) {
-      const searchTerm = searchValue.toLowerCase();
-      result = result.filter(
-        (model) =>
-          (model.model_name &&
-            model.model_name.toLowerCase().includes(searchTerm)) ||
-          (model.description &&
-            model.description.toLowerCase().includes(searchTerm)) ||
-          (model.tags && model.tags.toLowerCase().includes(searchTerm)) ||
-          (model.vendor_name &&
-            model.vendor_name.toLowerCase().includes(searchTerm)),
-      );
-    }
+    result = result.filter((model) =>
+      matchesModelPricingSearch(model, searchTerms),
+    );
 
     return result;
   }, [
     models,
-    searchValue,
+    searchTerms,
     filterGroup,
     filterQuotaType,
     filterEndpointType,

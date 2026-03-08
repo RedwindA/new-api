@@ -31,6 +31,7 @@ import {
   Modal,
 } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
+import SearchHelpTooltip from '../../../components/common/ui/SearchHelpTooltip';
 import {
   RefreshCcw,
   CheckSquare,
@@ -43,6 +44,8 @@ import {
   showSuccess,
   showWarning,
   stringToColor,
+  parseSearchTerms,
+  matchesSearchTerms,
 } from '../../../helpers';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { DEFAULT_ENDPOINT } from '../../../constants';
@@ -485,6 +488,7 @@ export default function UpstreamRatioSync(props) {
               onChange={setSearchKeyword}
               className='w-full sm:w-64'
               showClear
+              suffix={<SearchHelpTooltip size={14} />}
             />
 
             <Select
@@ -537,22 +541,16 @@ export default function UpstreamRatioSync(props) {
       return tmp;
     }, [differences]);
 
+    const searchTerms = useMemo(() => parseSearchTerms(searchKeyword), [searchKeyword]);
+
     const filteredDataSource = useMemo(() => {
-      if (!searchKeyword.trim() && !ratioTypeFilter) {
-        return dataSource;
-      }
-
       return dataSource.filter((item) => {
-        const matchesKeyword =
-          !searchKeyword.trim() ||
-          item.model.toLowerCase().includes(searchKeyword.toLowerCase().trim());
-
+        const keywordMatch = matchesSearchTerms(item.model, searchTerms);
         const matchesRatioType =
           !ratioTypeFilter || item.ratioType === ratioTypeFilter;
-
-        return matchesKeyword && matchesRatioType;
+        return keywordMatch && matchesRatioType;
       });
-    }, [dataSource, searchKeyword, ratioTypeFilter]);
+    }, [dataSource, searchTerms, ratioTypeFilter]);
 
     const upstreamNames = useMemo(() => {
       const set = new Set();

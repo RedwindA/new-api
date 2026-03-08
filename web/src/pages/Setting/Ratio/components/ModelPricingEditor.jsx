@@ -40,6 +40,7 @@ import {
   IconSave,
   IconSearch,
 } from '@douyinfe/semi-icons';
+import SearchHelpTooltip from '../../../../components/common/ui/SearchHelpTooltip';
 import { useTranslation } from 'react-i18next';
 import {
   PAGE_SIZE,
@@ -264,6 +265,7 @@ export default function ModelPricingEditor({
             onChange={(value) => setSearchText(value)}
             style={{ width: isMobile ? '100%' : 220 }}
             showClear
+            suffix={<SearchHelpTooltip />}
           />
           {showConflictFilter ? (
             <Checkbox
