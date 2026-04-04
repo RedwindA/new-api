@@ -3342,7 +3342,6 @@
     "最多添加 {{max}} 个自定义导航项": "Maximum {{max}} éléments de navigation personnalisés",
     "请填写完整信息": "Veuillez remplir toutes les informations",
     "链接示例: https://example.com 或 /path": "ex. https://example.com ou /path",
-    "拖拽可调整顺序": "Glisser pour réorganiser",
-    "内置": "Intégré"
+    "拖拽可调整顺序": "Glisser pour réorganiser"
   }
 }

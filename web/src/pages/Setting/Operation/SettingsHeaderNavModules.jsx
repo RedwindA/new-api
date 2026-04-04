@@ -341,7 +341,7 @@ export default function SettingsHeaderNavModules(props) {
     setEditingItem(item);
     setFormLabel(item.label);
     setFormUrl(item.url);
-    setFormOpenInNewTab(item.openInNewTab);
+    setFormOpenInNewTab(item.openInNewTab ?? true);
     setModalVisible(true);
   }
 
@@ -438,6 +438,8 @@ export default function SettingsHeaderNavModules(props) {
       } catch (error) {
         setItems(DEFAULT_ITEMS);
       }
+    } else if (props.options) {
+      setItems(DEFAULT_ITEMS);
     }
   }, [props.options]);
 
