@@ -80,12 +80,18 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
 
   // 获取模型广场权限配置
   const pricingRequireAuth = useMemo(() => {
+    // New format: {items: [...]}
+    if (Array.isArray(headerNavModules?.items)) {
+      const pricing = headerNavModules.items.find((it) => it.key === 'pricing');
+      return pricing?.requireAuth === true;
+    }
+    // Old format: {pricing: {enabled, requireAuth}}
     if (headerNavModules?.pricing) {
       return typeof headerNavModules.pricing === 'object'
-        ? headerNavModules.pricing.requireAuth
-        : false; // 默认不需要登录
+        ? headerNavModules.pricing.requireAuth === true
+        : false;
     }
-    return false; // 默认不需要登录
+    return false;
   }, [headerNavModules]);
 
   const isConsoleRoute = location.pathname.startsWith('/console');

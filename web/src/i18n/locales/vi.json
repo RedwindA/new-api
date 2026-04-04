@@ -3882,6 +3882,16 @@
     "从剪贴板粘贴配置": "Dán cấu hình",
     "剪贴板中未检测到连接信息": "Không tìm thấy thông tin kết nối trong bộ nhớ tạm",
     "连接信息已填入": "Đã áp dụng thông tin kết nối",
-    "无法读取剪贴板": "Không thể đọc bộ nhớ tạm"
+    "无法读取剪贴板": "Không thể đọc bộ nhớ tạm",
+    "在新标签页打开": "Mở trong tab mới",
+    "添加导航项": "Thêm mục điều hướng",
+    "编辑导航项": "Chỉnh sửa mục điều hướng",
+    "内部路径": "Đường dẫn nội bộ",
+    "外部链接": "Liên kết ngoài",
+    "最多添加 {{max}} 个自定义导航项": "Tối đa {{max}} mục điều hướng tùy chỉnh",
+    "请填写完整信息": "Vui lòng điền đầy đủ thông tin",
+    "链接示例: https://example.com 或 /path": "VD: https://example.com hoặc /path",
+    "拖拽可调整顺序": "Kéo để sắp xếp lại",
+    "内置": "Tích hợp"
   }
 }

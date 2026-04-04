@@ -18,67 +18,75 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useMemo } from 'react';
+import { migrateOldFormatToItems } from '../../helpers/navMigration';
+
+const BUILT_IN_KEYS = ['home', 'console', 'pricing', 'docs', 'about'];
+
+function resolveItems(headerNavModules) {
+  if (!headerNavModules) return null;
+  if (Array.isArray(headerNavModules.items)) {
+    return headerNavModules.items;
+  }
+  return migrateOldFormatToItems(headerNavModules);
+}
 
 export const useNavigation = (t, docsLink, headerNavModules) => {
   const mainNavLinks = useMemo(() => {
-    // 默认配置，如果没有传入配置则显示所有模块
-    const defaultModules = {
-      home: true,
-      console: true,
-      pricing: true,
-      docs: true,
-      about: true,
+    const items = resolveItems(headerNavModules);
+    if (!items) {
+      // fallback: show all built-in items
+      const links = [
+        { text: t('首页'), itemKey: 'home', to: '/' },
+        { text: t('控制台'), itemKey: 'console', to: '/console' },
+        { text: t('模型广场'), itemKey: 'pricing', to: '/pricing' },
+      ];
+      if (docsLink) {
+        links.push({
+          text: t('文档'),
+          itemKey: 'docs',
+          isExternal: true,
+          externalLink: docsLink,
+        });
+      }
+      links.push({ text: t('关于'), itemKey: 'about', to: '/about' });
+      return links;
+    }
+
+    const builtInLinkMap = {
+      home: { text: t('首页'), itemKey: 'home', to: '/' },
+      console: { text: t('控制台'), itemKey: 'console', to: '/console' },
+      pricing: { text: t('模型广场'), itemKey: 'pricing', to: '/pricing' },
+      docs: docsLink
+        ? {
+            text: t('文档'),
+            itemKey: 'docs',
+            isExternal: true,
+            externalLink: docsLink,
+          }
+        : null,
+      about: { text: t('关于'), itemKey: 'about', to: '/about' },
     };
 
-    // 使用传入的配置或默认配置
-    const modules = headerNavModules || defaultModules;
-
-    const allLinks = [
-      {
-        text: t('首页'),
-        itemKey: 'home',
-        to: '/',
-      },
-      {
-        text: t('控制台'),
-        itemKey: 'console',
-        to: '/console',
-      },
-      {
-        text: t('模型广场'),
-        itemKey: 'pricing',
-        to: '/pricing',
-      },
-      ...(docsLink
-        ? [
-            {
-              text: t('文档'),
-              itemKey: 'docs',
-              isExternal: true,
-              externalLink: docsLink,
-            },
-          ]
-        : []),
-      {
-        text: t('关于'),
-        itemKey: 'about',
-        to: '/about',
-      },
-    ];
-
-    // 根据配置过滤导航链接
-    return allLinks.filter((link) => {
-      if (link.itemKey === 'docs') {
-        return docsLink && modules.docs;
+    const links = [];
+    for (const item of items) {
+      if (item.key && BUILT_IN_KEYS.includes(item.key)) {
+        if (item.enabled === false) continue;
+        if (item.key === 'docs' && !docsLink) continue;
+        const link = builtInLinkMap[item.key];
+        if (link) links.push(link);
+      } else if (item.id) {
+        links.push({
+          text: item.label,
+          itemKey: item.id,
+          to: item.isExternal ? undefined : item.url,
+          isExternal: item.isExternal,
+          externalLink: item.isExternal ? item.url : undefined,
+          openInNewTab: item.openInNewTab,
+        });
       }
-      if (link.itemKey === 'pricing') {
-        // 支持新的pricing配置格式
-        return typeof modules.pricing === 'object'
-          ? modules.pricing.enabled
-          : modules.pricing;
-      }
-      return modules[link.itemKey] === true;
-    });
+    }
+
+    return links;
   }, [t, docsLink, headerNavModules]);
 
   return {

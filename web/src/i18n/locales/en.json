@@ -3376,6 +3376,17 @@
     "从剪贴板粘贴配置": "Paste Config",
     "剪贴板中未检测到连接信息": "No connection info found in clipboard",
     "连接信息已填入": "Connection info applied",
-    "无法读取剪贴板": "Cannot read clipboard"
+    "无法读取剪贴板": "Cannot read clipboard",
+    "在新标签页打开": "Open in New Tab",
+    "添加导航项": "Add Navigation Item",
+    "编辑导航项": "Edit Navigation Item",
+    "链接地址": "Link URL",
+    "内部路径": "Internal Path",
+    "外部链接": "External Link",
+    "最多添加 {{max}} 个自定义导航项": "Maximum {{max}} custom navigation items",
+    "请填写完整信息": "Please fill in complete information",
+    "链接示例: https://example.com 或 /path": "e.g. https://example.com or /path",
+    "拖拽可调整顺序": "Drag to reorder",
+    "内置": "Built-in"
   }
 }
