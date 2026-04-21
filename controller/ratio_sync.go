@@ -821,11 +821,12 @@ func cacheFieldCount(c modelsDevCandidate) int {
 
 // convertModelsDevToRatioData parses models.dev /api.json and converts
 // provider pricing metadata into local ratio format.
-// models.dev costs are USD per 1M tokens:
+// models.dev costs are USD per 1M tokens. Four ratios may be emitted:
 //
-//	model_ratio = input_cost_per_1M / 2
-//	completion_ratio = output_cost / input_cost
-//	cache_ratio = cache_read_cost / input_cost
+//	model_ratio        = input_cost_per_1M / 2
+//	completion_ratio   = output_cost / input_cost
+//	cache_ratio        = cache_read_cost / input_cost
+//	create_cache_ratio = cache_write_cost / input_cost
 //
 // Duplicate model keys across providers are resolved by selecting the
 // cheapest non-zero input cost. If only zero-priced candidates exist,
