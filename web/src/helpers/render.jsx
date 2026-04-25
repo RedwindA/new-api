@@ -2277,6 +2277,7 @@ export function renderTieredModelPrice(opts) {
     expr_b64: exprB64,
     matched_tier: matchedTier,
     group_ratio: groupRatio,
+    user_group_ratio,
     cache_tokens: cacheTokens = 0,
     cache_creation_tokens: cacheCreationTokens = 0,
     cache_creation_tokens_5m: cacheCreationTokens5m = 0,
@@ -2291,7 +2292,11 @@ export function renderTieredModelPrice(opts) {
 
   const tier = tiers.find((t) => t.label === matchedTier) || tiers[0];
   const { symbol, rate } = getCurrencyConfig();
-  const gr = groupRatio || 1;
+  const { ratio: effectiveRatio, label: ratioLabel } = getEffectiveRatio(
+    groupRatio,
+    user_group_ratio,
+  );
+  const gr = isValidGroupRatio(effectiveRatio) ? effectiveRatio : 1;
 
   const priceLines = BILLING_VARS.map((v) => [v.field, v.label]);
 
@@ -2299,9 +2304,26 @@ export function renderTieredModelPrice(opts) {
     buildBillingText('命中档位：{{tier}}', { tier: matchedTier || tier.label }),
     ...priceLines
       .filter(([field]) => tier[field] > 0)
-      .map(([field, label]) =>
-        buildBillingPriceText(`${label}：{{symbol}}{{price}} / 1M tokens`, { symbol, usdAmount: tier[field], rate }),
-      ),
+      .map(([field, label]) => {
+        const baseUsd = tier[field];
+        if (gr === 1) {
+          return buildBillingPriceText(
+            `${label}：{{symbol}}{{price}} / 1M tokens`,
+            { symbol, usdAmount: baseUsd, rate },
+          );
+        }
+        return buildBillingPriceText(
+          `${label}：{{symbol}}{{price}} × {{ratioType}} {{ratio}} = {{symbol}}{{total}} / 1M tokens`,
+          {
+            symbol,
+            usdAmount: baseUsd,
+            rate,
+            ratioType: ratioLabel,
+            ratio: gr,
+            total: formatBillingDisplayPrice(baseUsd * gr, rate),
+          },
+        );
+      }),
   ];
 
   return renderBillingArticle(lines);
@@ -2334,6 +2356,11 @@ export function renderTieredModelPriceSimple(opts) {
     ];
 
     if (tier && isPriceDisplayMode(displayMode)) {
+      const { ratio: effectiveRatio } = getEffectiveRatio(
+        groupRatio,
+        user_group_ratio,
+      );
+      const gr = isValidGroupRatio(effectiveRatio) ? effectiveRatio : 1;
       const priceSegments = BILLING_VARS.map((v) => [v.field, v.shortLabel]);
       for (const [field, label] of priceSegments) {
         if (tier[field] > 0) {
@@ -2341,7 +2368,7 @@ export function renderTieredModelPriceSimple(opts) {
             tone: 'secondary',
             text: i18next.t('{{label}} {{price}} / 1M tokens', {
               label: i18next.t(label),
-              price: formatCompactDisplayPrice(tier[field]),
+              price: formatCompactDisplayPrice(tier[field] * gr),
             }),
           });
         }
