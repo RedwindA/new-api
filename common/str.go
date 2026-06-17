@@ -197,6 +197,13 @@ func maskHostForPlainDomain(domain string) string {
 // www.openai.com -> ***.***.com
 // api.openai.com -> ***.***.com
 func MaskSensitiveInfo(str string) string {
+	if strings.Contains(str, "用户额度不足") && strings.Contains(str, "剩余额度") {
+		return "余额不足"
+	}
+	if strings.Contains(str, "预扣费额度失败") && strings.Contains(str, "用户剩余额度") {
+		return "余额不足"
+	}
+
 	// Mask URLs
 	str = maskURLPattern.ReplaceAllStringFunc(str, func(urlStr string) string {
 		u, err := url.Parse(urlStr)
