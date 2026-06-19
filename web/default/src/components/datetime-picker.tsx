@@ -16,12 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import * as React from 'react'
 import { ChevronDownIcon } from 'lucide-react'
+import * as React from 'react'
 import { enUS, fr, ja, ru, vi, zhCN } from 'react-day-picker/locale'
 import { useTranslation } from 'react-i18next'
-import dayjs from '@/lib/dayjs'
-import { cn } from '@/lib/utils'
+
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
@@ -30,6 +29,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import dayjs from '@/lib/dayjs'
+import { cn } from '@/lib/utils'
 
 const calendarLocales = {
   en: enUS,
@@ -45,6 +46,7 @@ interface DateTimePickerProps {
   onChange?: (date: Date | undefined) => void
   placeholder?: string
   className?: string
+  futureYears?: number
 }
 
 export function DateTimePicker({
@@ -52,11 +54,20 @@ export function DateTimePicker({
   onChange,
   placeholder,
   className,
+  futureYears,
 }: DateTimePickerProps) {
   const { t, i18n } = useTranslation()
   const placeholderText = placeholder ?? t('Select date')
   const calendarLocale =
     calendarLocales[i18n.language as keyof typeof calendarLocales] ?? enUS
+  const calendarEndMonth = React.useMemo(() => {
+    if (futureYears === undefined) {
+      return undefined
+    }
+
+    const currentYear = new Date().getFullYear()
+    return new Date(currentYear + futureYears, 11)
+  }, [futureYears])
   const [open, setOpen] = React.useState(false)
   const [date, setDate] = React.useState<Date | undefined>(value)
   const [month, setMonth] = React.useState<Date | undefined>(value)
@@ -132,6 +143,7 @@ export function DateTimePicker({
             month={month}
             onMonthChange={setMonth}
             captionLayout='dropdown'
+            endMonth={calendarEndMonth}
             onSelect={handleDateSelect}
             locale={calendarLocale}
           />
