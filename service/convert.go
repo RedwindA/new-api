@@ -755,7 +755,11 @@ func GeminiToOpenAIRequest(geminiRequest *dto.GeminiChatRequest, info *relaycomm
 	}
 	// gemini stop sequences 最多 5 个，openai stop 最多 4 个
 	if len(geminiRequest.GenerationConfig.StopSequences) > 0 {
-		openaiRequest.Stop = geminiRequest.GenerationConfig.StopSequences[:4]
+		stopCount := len(geminiRequest.GenerationConfig.StopSequences)
+		if stopCount > 4 {
+			stopCount = 4
+		}
+		openaiRequest.Stop = geminiRequest.GenerationConfig.StopSequences[:stopCount]
 	}
 	if geminiRequest.GenerationConfig.CandidateCount != nil && *geminiRequest.GenerationConfig.CandidateCount > 0 {
 		openaiRequest.N = lo.ToPtr(*geminiRequest.GenerationConfig.CandidateCount)
