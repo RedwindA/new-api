@@ -3684,6 +3684,7 @@
     "默认折叠侧边栏": "Réduire la barre latérale par défaut",
     "默认测试模型": "Modèle de test par défaut",
     "默认用户消息": "Bonjour",
-    "默认补全倍率": "Taux de complétion par défaut"
+    "默认补全倍率": "Taux de complétion par défaut",
+    "没有权限执行此操作": "Vous n’avez pas l’autorisation d’effectuer cette action"
   }
 }

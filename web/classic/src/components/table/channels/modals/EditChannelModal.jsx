@@ -127,6 +127,39 @@ const PARAM_OVERRIDE_OPERATIONS_TEMPLATE = {
 };
 
 const DEPRECATED_DOUBAO_CODING_PLAN_BASE_URL = 'doubao-coding-plan';
+const CHANNEL_UPDATE_NON_SENSITIVE_FIELDS = new Set([
+  'id',
+  'test_model',
+  'name',
+  'weight',
+  'models',
+  'group',
+  'model_mapping',
+  'status_code_mapping',
+  'priority',
+  'auto_ban',
+  'other_info',
+  'tag',
+  'remark',
+  'channel_info',
+  'multi_key_mode',
+]);
+const CHANNEL_UPDATE_SENSITIVE_FIELDS = new Set([
+  'type',
+  'key',
+  'base_url',
+  'openai_organization',
+  'header_override',
+  'param_override',
+  'setting',
+  'other',
+  'settings',
+  'key_mode',
+]);
+// key_mode 不是表单输入字段（由本地 keyMode 状态管理），其余敏感字段与更新白名单保持一致
+const SENSITIVE_FORM_INPUT_FIELDS = new Set(
+  [...CHANNEL_UPDATE_SENSITIVE_FIELDS].filter((field) => field !== 'key_mode'),
+);
 
 // 支持并且已适配通过接口获取模型列表的渠道类型
 const MODEL_FETCHABLE_TYPES = new Set([
@@ -163,6 +196,16 @@ const EditChannelModal = (props) => {
   const { t } = useTranslation();
   const channelId = props.editingChannel.id;
   const isEdit = channelId !== undefined;
+  const canEditSensitive = props.canEditSensitive === true;
+  const canRevealChannelKey = (() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      return user?.role === 100;
+    } catch {
+      return false;
+    }
+  })();
+  const sensitiveLocked = isEdit && !canEditSensitive;
   const [loading, setLoading] = useState(isEdit);
   const isMobile = useIsMobile();
   const handleCancel = () => {
@@ -521,6 +564,10 @@ const EditChannelModal = (props) => {
 
   // 处理渠道额外设置的更新
   const handleChannelSettingsChange = (key, value) => {
+    if (sensitiveLocked) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
     // 更新内部状态
     setChannelSettings((prev) => ({ ...prev, [key]: value }));
 
@@ -539,6 +586,10 @@ const EditChannelModal = (props) => {
   };
 
   const handleChannelOtherSettingsChange = (key, value) => {
+    if (sensitiveLocked) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
     // 更新内部状态
     setChannelSettings((prev) => ({ ...prev, [key]: value }));
 
@@ -600,6 +651,10 @@ const EditChannelModal = (props) => {
   const isIonetLocked = isIonetChannel && isEdit;
 
   const handleInputChange = (name, value) => {
+    if (sensitiveLocked && SENSITIVE_FORM_INPUT_FIELDS.has(name)) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
     if (
       isIonetChannel &&
       isEdit &&
@@ -1047,6 +1102,10 @@ const EditChannelModal = (props) => {
 
   const fetchUpstreamModelList = async (name, options = {}) => {
     const silent = !!options.silent;
+    if (!isEdit && !canEditSensitive) {
+      showError(t('没有权限执行此操作'));
+      return null;
+    }
     // if (inputs['type'] !== 1) {
     //   showError(t('仅支持 OpenAI 接口格式'));
     //   return;
@@ -1200,6 +1259,10 @@ const EditChannelModal = (props) => {
 
   // 查看渠道密钥（透明验证）
   const handleShow2FAModal = async () => {
+    if (!canRevealChannelKey) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
     try {
       // 使用 withVerification 包装，会自动处理需要验证的情况
       const result = await withVerification(
@@ -1227,6 +1290,10 @@ const EditChannelModal = (props) => {
 
   const handleRefreshCodexCredential = async () => {
     if (!isEdit) return;
+    if (sensitiveLocked) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
 
     setCodexCredentialRefreshing(true);
     try {
@@ -1535,6 +1602,10 @@ const EditChannelModal = (props) => {
   };
 
   const submit = async () => {
+    if (!isEdit && !canEditSensitive) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
     const formValues = formApiRef.current ? formApiRef.current.getValues() : {};
     let localInputs = { ...formValues };
     localInputs.param_override = inputs.param_override;
@@ -1855,6 +1926,9 @@ const EditChannelModal = (props) => {
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
     localInputs.models = localInputs.models.join(',');
     localInputs.group = (localInputs.groups || []).join(',');
+    delete localInputs.groups;
+    delete localInputs.custom_model;
+    delete localInputs.azure_responses_version;
 
     let mode = 'single';
     if (batch) {
@@ -1862,11 +1936,23 @@ const EditChannelModal = (props) => {
     }
 
     if (isEdit) {
-      res = await API.put(`/api/channel/`, {
+      const updatePayload = {
         ...localInputs,
         id: parseInt(channelId),
         key_mode: isMultiKeyChannel ? keyMode : undefined, // 只在多key模式下传递
-      });
+      };
+      const allowedFields = canEditSensitive
+        ? new Set([
+            ...CHANNEL_UPDATE_NON_SENSITIVE_FIELDS,
+            ...CHANNEL_UPDATE_SENSITIVE_FIELDS,
+          ])
+        : CHANNEL_UPDATE_NON_SENSITIVE_FIELDS;
+      const filteredPayload = Object.fromEntries(
+        Object.entries(updatePayload).filter(([field, value]) => {
+          return value !== undefined && allowedFields.has(field);
+        }),
+      );
+      res = await API.put(`/api/channel/`, filteredPayload);
     } else {
       res = await API.post(`/api/channel/`, {
         mode: mode,
@@ -2062,6 +2148,7 @@ const EditChannelModal = (props) => {
               size='small'
               type='tertiary'
               theme='outline'
+              disabled={sensitiveLocked}
               onClick={deduplicateKeys}
               style={{ textDecoration: 'underline' }}
             >
@@ -2147,6 +2234,18 @@ const EditChannelModal = (props) => {
     );
   };
 
+  const submitLocked = !isEdit && !canEditSensitive;
+  const submitButton = (
+    <Button
+      theme='solid'
+      onClick={() => formApiRef.current?.submitForm()}
+      icon={<IconSave />}
+      disabled={submitLocked}
+    >
+      {t('提交')}
+    </Button>
+  );
+
   return (
     <>
       <SideSheet
@@ -2179,13 +2278,13 @@ const EditChannelModal = (props) => {
         width={isMobile ? '100%' : 600}
         footer={
           <div className='flex justify-end items-center gap-2'>
-            <Button
-              theme='solid'
-              onClick={() => formApiRef.current?.submitForm()}
-              icon={<IconSave />}
-            >
-              {t('提交')}
-            </Button>
+            {submitLocked ? (
+              <Tooltip content={t('没有权限执行此操作')}>
+                {submitButton}
+              </Tooltip>
+            ) : (
+              submitButton
+            )}
             <Button
               theme='light'
               type='primary'
@@ -2220,6 +2319,7 @@ const EditChannelModal = (props) => {
                     label={t('是否检测上游模型更新')}
                     checkedText={t('开')}
                     uncheckedText={t('关')}
+                    disabled={sensitiveLocked}
                     onChange={(value) =>
                       handleChannelOtherSettingsChange(
                         'upstream_model_update_check_enabled',
@@ -2235,7 +2335,10 @@ const EditChannelModal = (props) => {
                     label={t('是否自动同步上游模型更新')}
                     checkedText={t('开')}
                     uncheckedText={t('关')}
-                    disabled={!inputs.upstream_model_update_check_enabled}
+                    disabled={
+                      !inputs.upstream_model_update_check_enabled ||
+                      sensitiveLocked
+                    }
                     onChange={(value) =>
                       handleChannelOtherSettingsChange('upstream_model_update_auto_sync_enabled', value)
                     }
@@ -2312,6 +2415,7 @@ const EditChannelModal = (props) => {
                           size='small'
                           type='primary'
                           icon={<IconCode size={14} />}
+                          disabled={sensitiveLocked}
                           onClick={() => setParamOverrideEditorVisible(true)}
                         >
                           {t('可视化编辑')}
@@ -2325,7 +2429,7 @@ const EditChannelModal = (props) => {
                             { node: 'item', name: t('清空'), onClick: clearParamOverride },
                           ]}
                         >
-                          <Button size='small' type='tertiary'>
+                          <Button size='small' type='tertiary' disabled={sensitiveLocked}>
                             {t('更多')} <IconChevronDown size={12} />
                           </Button>
                         </Dropdown>
@@ -2370,6 +2474,7 @@ const EditChannelModal = (props) => {
                       '\n{\n  "User-Agent": "Mozilla/5.0 ...",\n  "Authorization": "Bearer {api_key}"\n}'
                     }
                     autosize
+                    disabled={sensitiveLocked}
                     onChange={(value) =>
                       handleInputChange('header_override', value)
                     }
@@ -2377,8 +2482,14 @@ const EditChannelModal = (props) => {
                       <div className='flex flex-col gap-1'>
                         <div className='flex gap-2 flex-wrap items-center'>
                           <Text
-                            className='!text-semi-color-primary cursor-pointer'
+                            disabled={sensitiveLocked}
+                            className={
+                              sensitiveLocked
+                                ? ''
+                                : '!text-semi-color-primary cursor-pointer'
+                            }
                             onClick={() =>
+                              !sensitiveLocked &&
                               handleInputChange(
                                 'header_override',
                                 JSON.stringify({ '*': true, 're:^X-Trace-.*$': true, 'X-Foo': '{client_header:X-Foo}', Authorization: 'Bearer {api_key}', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0' }, null, 2),
@@ -2388,16 +2499,30 @@ const EditChannelModal = (props) => {
                             {t('填入模板')}
                           </Text>
                           <Text
-                            className='!text-semi-color-primary cursor-pointer'
+                            disabled={sensitiveLocked}
+                            className={
+                              sensitiveLocked
+                                ? ''
+                                : '!text-semi-color-primary cursor-pointer'
+                            }
                             onClick={() =>
+                              !sensitiveLocked &&
                               handleInputChange('header_override', JSON.stringify({ '*': true }, null, 2))
                             }
                           >
                             {t('填入透传模版')}
                           </Text>
                           <Text
-                            className='!text-semi-color-primary cursor-pointer'
-                            onClick={() => formatJsonField('header_override')}
+                            disabled={sensitiveLocked}
+                            className={
+                              sensitiveLocked
+                                ? ''
+                                : '!text-semi-color-primary cursor-pointer'
+                            }
+                            onClick={() =>
+                              !sensitiveLocked &&
+                              formatJsonField('header_override')
+                            }
                           >
                             {t('格式化')}
                           </Text>
@@ -2487,10 +2612,10 @@ const EditChannelModal = (props) => {
                       <div className='mt-4 mb-2 text-sm font-medium text-gray-700'>
                         {t('字段透传控制')}
                       </div>
-                      <Form.Switch field='allow_service_tier' label={t('允许 service_tier 透传')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('allow_service_tier', value)} extraText={t('service_tier 字段用于指定服务层级，允许透传可能导致实际计费高于预期。默认关闭以避免额外费用')} />
-                      <Form.Switch field='disable_store' label={t('禁用 store 透传')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('disable_store', value)} extraText={t('store 字段用于授权 OpenAI 存储请求数据以评估和优化产品。默认关闭，开启后可能导致 Codex 无法正常使用')} />
-                      <Form.Switch field='allow_safety_identifier' label={t('允许 safety_identifier 透传')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('allow_safety_identifier', value)} extraText={t('safety_identifier 字段用于帮助 OpenAI 识别可能违反使用政策的应用程序用户。默认关闭以保护用户隐私')} />
-                      <Form.Switch field='allow_include_obfuscation' label={t('允许 stream_options.include_obfuscation 透传')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('allow_include_obfuscation', value)} extraText={t('include_obfuscation 用于控制 Responses 流混淆字段。默认关闭以避免客户端关闭该安全保护')} />
+                      <Form.Switch field='allow_service_tier' label={t('允许 service_tier 透传')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('allow_service_tier', value)} extraText={t('service_tier 字段用于指定服务层级，允许透传可能导致实际计费高于预期。默认关闭以避免额外费用')} />
+                      <Form.Switch field='disable_store' label={t('禁用 store 透传')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('disable_store', value)} extraText={t('store 字段用于授权 OpenAI 存储请求数据以评估和优化产品。默认关闭，开启后可能导致 Codex 无法正常使用')} />
+                      <Form.Switch field='allow_safety_identifier' label={t('允许 safety_identifier 透传')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('allow_safety_identifier', value)} extraText={t('safety_identifier 字段用于帮助 OpenAI 识别可能违反使用政策的应用程序用户。默认关闭以保护用户隐私')} />
+                      <Form.Switch field='allow_include_obfuscation' label={t('允许 stream_options.include_obfuscation 透传')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('allow_include_obfuscation', value)} extraText={t('include_obfuscation 用于控制 Responses 流混淆字段。默认关闭以避免客户端关闭该安全保护')} />
                     </>
                   )}
 
@@ -2499,9 +2624,9 @@ const EditChannelModal = (props) => {
                       <div className='mt-4 mb-2 text-sm font-medium text-gray-700'>
                         {t('字段透传控制')}
                       </div>
-                      <Form.Switch field='allow_service_tier' label={t('允许 service_tier 透传')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('allow_service_tier', value)} extraText={t('service_tier 字段用于指定服务层级，允许透传可能导致实际计费高于预期。默认关闭以避免额外费用')} />
-                      <Form.Switch field='allow_inference_geo' label={t('允许 inference_geo 透传')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('allow_inference_geo', value)} extraText={t('inference_geo 字段用于控制 Claude 数据驻留推理区域。默认关闭以避免未经授权透传地域信息')} />
-                      <Form.Switch field='allow_speed' label={t('允许 speed 透传')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('allow_speed', value)} extraText={t('speed 字段用于控制 Claude 推理速度模式。默认关闭以避免意外切换到 fast 模式')} />
+                      <Form.Switch field='allow_service_tier' label={t('允许 service_tier 透传')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('allow_service_tier', value)} extraText={t('service_tier 字段用于指定服务层级，允许透传可能导致实际计费高于预期。默认关闭以避免额外费用')} />
+                      <Form.Switch field='allow_inference_geo' label={t('允许 inference_geo 透传')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('allow_inference_geo', value)} extraText={t('inference_geo 字段用于控制 Claude 数据驻留推理区域。默认关闭以避免未经授权透传地域信息')} />
+                      <Form.Switch field='allow_speed' label={t('允许 speed 透传')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('allow_speed', value)} extraText={t('speed 字段用于控制 Claude 推理速度模式。默认关闭以避免意外切换到 fast 模式')} />
                     </>
                   )}
                 </div>
@@ -2513,20 +2638,20 @@ const EditChannelModal = (props) => {
                   </Text>
 
                   {inputs.type === 14 && (
-                    <Form.Switch field='claude_beta_query' label={t('Claude 强制 beta=true')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('claude_beta_query', value)} extraText={t('开启后，该渠道请求 Claude 时将强制追加 ?beta=true（无需客户端手动传参）')} />
+                    <Form.Switch field='claude_beta_query' label={t('Claude 强制 beta=true')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelOtherSettingsChange('claude_beta_query', value)} extraText={t('开启后，该渠道请求 Claude 时将强制追加 ?beta=true（无需客户端手动传参）')} />
                   )}
 
                   {inputs.type === 1 && (
-                    <Form.Switch field='force_format' label={t('强制格式化')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('force_format', value)} extraText={t('强制将响应格式化为 OpenAI 标准格式（只适用于OpenAI渠道类型）')} />
+                    <Form.Switch field='force_format' label={t('强制格式化')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelSettingsChange('force_format', value)} extraText={t('强制将响应格式化为 OpenAI 标准格式（只适用于OpenAI渠道类型）')} />
                   )}
 
-                  <Form.Switch field='thinking_to_content' label={t('思考内容转换')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('thinking_to_content', value)} extraText={t('将 reasoning_content 转换为 <think> 标签拼接到内容中')} />
-                  <Form.Switch field='pass_through_body_enabled' label={t('透传请求体')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('pass_through_body_enabled', value)} extraText={t('启用请求体透传功能')} />
+                  <Form.Switch field='thinking_to_content' label={t('思考内容转换')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelSettingsChange('thinking_to_content', value)} extraText={t('将 reasoning_content 转换为 <think> 标签拼接到内容中')} />
+                  <Form.Switch field='pass_through_body_enabled' label={t('透传请求体')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelSettingsChange('pass_through_body_enabled', value)} extraText={t('启用请求体透传功能')} />
 
-                  <Form.Input field='proxy' label={t('代理地址')} placeholder={t('例如: socks5://user:pass@host:port')} onChange={(value) => handleChannelSettingsChange('proxy', value)} showClear extraText={t('用于配置网络代理，支持 socks5 协议')} />
+                  <Form.Input field='proxy' label={t('代理地址')} placeholder={t('例如: socks5://user:pass@host:port')} disabled={sensitiveLocked} onChange={(value) => handleChannelSettingsChange('proxy', value)} showClear extraText={t('用于配置网络代理，支持 socks5 协议')} />
 
-                  <Form.TextArea field='system_prompt' label={t('系统提示词')} placeholder={t('输入系统提示词，用户的系统提示词将优先于此设置')} onChange={(value) => handleChannelSettingsChange('system_prompt', value)} autosize showClear extraText={t('用户优先：如果用户在请求中指定了系统提示词，将优先使用用户的设置')} />
-                  <Form.Switch field='system_prompt_override' label={t('系统提示词拼接')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelSettingsChange('system_prompt_override', value)} extraText={t('如果用户请求中包含系统提示词，则使用此设置拼接到用户的系统提示词前面')} />
+                  <Form.TextArea field='system_prompt' label={t('系统提示词')} placeholder={t('输入系统提示词，用户的系统提示词将优先于此设置')} disabled={sensitiveLocked} onChange={(value) => handleChannelSettingsChange('system_prompt', value)} autosize showClear extraText={t('用户优先：如果用户在请求中指定了系统提示词，将优先使用用户的设置')} />
+                  <Form.Switch field='system_prompt_override' label={t('系统提示词拼接')} checkedText={t('开')} uncheckedText={t('关')} disabled={sensitiveLocked} onChange={(value) => handleChannelSettingsChange('system_prompt_override', value)} extraText={t('如果用户请求中包含系统提示词，则使用此设置拼接到用户的系统提示词前面')} />
                 </div>
               </div>
             );
@@ -2622,7 +2747,7 @@ const EditChannelModal = (props) => {
                       onSearch={(value) => setChannelSearchValue(value)}
                       renderOptionItem={renderChannelOption}
                       onChange={(value) => handleInputChange('type', value)}
-                      disabled={isIonetLocked}
+                      disabled={isIonetLocked || sensitiveLocked}
                     />
 
                     {inputs.type === 57 && (
@@ -2678,6 +2803,7 @@ const EditChannelModal = (props) => {
                           ]}
                           style={{ width: '100%' }}
                           value={inputs.aws_key_type || 'ak_sk'}
+                          disabled={sensitiveLocked}
                           onChange={(value) => {
                             handleChannelOtherSettingsChange(
                               'aws_key_type',
@@ -2702,6 +2828,7 @@ const EditChannelModal = (props) => {
                         ]}
                         style={{ width: '100%' }}
                         value={inputs.vertex_key_type || 'json'}
+                        disabled={sensitiveLocked}
                         onChange={(value) => {
                           // 更新设置中的 vertex_key_type
                           handleChannelOtherSettingsChange(
@@ -2740,6 +2867,7 @@ const EditChannelModal = (props) => {
                           dragSubText={t('仅支持 JSON 文件，支持多文件')}
                           style={{ marginTop: 10 }}
                           uploadTrigger='custom'
+                          disabled={sensitiveLocked}
                           beforeUpload={() => false}
                           onChange={handleVertexUploadChange}
                           fileList={vertexFileList}
@@ -2778,7 +2906,7 @@ const EditChannelModal = (props) => {
                           autosize
                           autoComplete='new-password'
                           onChange={(value) => handleInputChange('key', value)}
-                          disabled={isIonetLocked}
+                          disabled={isIonetLocked || sensitiveLocked}
                           extraText={
                             <div className='flex items-center gap-2 flex-wrap'>
                               {isEdit &&
@@ -2790,7 +2918,7 @@ const EditChannelModal = (props) => {
                                     )}
                                   </Text>
                                 )}
-                              {isEdit && (
+                              {isEdit && canRevealChannelKey && (
                                 <Button
                                   size='small'
                                   type='primary'
@@ -2834,7 +2962,7 @@ const EditChannelModal = (props) => {
                               onChange={(value) =>
                                 handleInputChange('key', value)
                               }
-                              disabled={isIonetLocked}
+                              disabled={isIonetLocked || sensitiveLocked}
                               extraText={
                                 <div className='flex flex-col gap-2'>
                                   <Text type='tertiary' size='small'>
@@ -2851,7 +2979,7 @@ const EditChannelModal = (props) => {
                                         theme='outline'
                                         onClick={handleRefreshCodexCredential}
                                         loading={codexCredentialRefreshing}
-                                        disabled={isIonetLocked}
+                                        disabled={isIonetLocked || sensitiveLocked}
                                       >
                                         {t('刷新凭证')}
                                       </Button>
@@ -2861,17 +2989,17 @@ const EditChannelModal = (props) => {
                                       type='primary'
                                       theme='outline'
                                       onClick={() => formatJsonField('key')}
-                                      disabled={isIonetLocked}
+                                      disabled={isIonetLocked || sensitiveLocked}
                                     >
                                       {t('格式化')}
                                     </Button>
-                                    {isEdit && (
+                                    {isEdit && canRevealChannelKey && (
                                       <Button
                                         size='small'
                                         type='primary'
                                         theme='outline'
                                         onClick={handleShow2FAModal}
-                                        disabled={isIonetLocked}
+                                        disabled={isIonetLocked || sensitiveLocked}
                                       >
                                         {t('查看密钥')}
                                       </Button>
@@ -2898,6 +3026,7 @@ const EditChannelModal = (props) => {
                                     type={
                                       !useManualInput ? 'primary' : 'tertiary'
                                     }
+                                    disabled={sensitiveLocked}
                                     onClick={() => {
                                       setUseManualInput(false);
                                       // 切换到文件上传模式时清空手动输入的密钥
@@ -2914,6 +3043,7 @@ const EditChannelModal = (props) => {
                                     type={
                                       useManualInput ? 'primary' : 'tertiary'
                                     }
+                                    disabled={sensitiveLocked}
                                     onClick={() => {
                                       setUseManualInput(true);
                                       // 切换到手动输入模式时清空文件上传相关状态
@@ -2974,6 +3104,7 @@ const EditChannelModal = (props) => {
                                 onChange={(value) =>
                                   handleInputChange('key', value)
                                 }
+                                disabled={isIonetLocked || sensitiveLocked}
                                 extraText={
                                   <div className='flex items-center gap-2'>
                                     <Text type='tertiary' size='small'>
@@ -2988,7 +3119,7 @@ const EditChannelModal = (props) => {
                                           )}
                                         </Text>
                                       )}
-                                    {isEdit && (
+                                    {isEdit && canRevealChannelKey && (
                                       <Button
                                         size='small'
                                         type='primary'
@@ -3015,6 +3146,7 @@ const EditChannelModal = (props) => {
                                 dragSubText={t('仅支持 JSON 文件')}
                                 style={{ marginTop: 10 }}
                                 uploadTrigger='custom'
+                                disabled={sensitiveLocked}
                                 beforeUpload={() => false}
                                 onChange={handleVertexUploadChange}
                                 fileList={vertexFileList}
@@ -3058,6 +3190,7 @@ const EditChannelModal = (props) => {
                             onChange={(value) =>
                               handleInputChange('key', value)
                             }
+                            disabled={isIonetLocked || sensitiveLocked}
                             extraText={
                               <div className='flex items-center gap-2'>
                                 {isEdit &&
@@ -3069,7 +3202,7 @@ const EditChannelModal = (props) => {
                                       )}
                                     </Text>
                                   )}
-                                {isEdit && (
+                                {isEdit && canRevealChannelKey && (
                                   <Button
                                     size='small'
                                     type='primary'
@@ -3099,6 +3232,7 @@ const EditChannelModal = (props) => {
                         ]}
                         style={{ width: '100%' }}
                         value={keyMode}
+                        disabled={sensitiveLocked}
                         onChange={(value) => setKeyMode(value)}
                         extraText={
                           <Text type='tertiary' size='small'>
@@ -3145,6 +3279,7 @@ const EditChannelModal = (props) => {
                         placeholder={
                           '请输入星火大模型版本，注意是接口地址中的版本号，例如：v2.1'
                         }
+                        disabled={sensitiveLocked}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -3176,6 +3311,7 @@ const EditChannelModal = (props) => {
                         field='other'
                         label={t('知识库 ID')}
                         placeholder={'请输入知识库 ID，例如：123456'}
+                        disabled={sensitiveLocked}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -3188,6 +3324,7 @@ const EditChannelModal = (props) => {
                         placeholder={
                           '请输入Account ID，例如：d6b5da8hk1awo8nap34ube6gh'
                         }
+                        disabled={sensitiveLocked}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -3198,6 +3335,7 @@ const EditChannelModal = (props) => {
                         field='other'
                         label={t('智能体ID')}
                         placeholder={'请输入智能体ID，例如：7342866812345'}
+                        disabled={sensitiveLocked}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -3210,6 +3348,7 @@ const EditChannelModal = (props) => {
                         placeholder={t('请输入组织org-xxx')}
                         showClear
                         helpText={t('组织，不填则为默认组织')}
+                        disabled={sensitiveLocked}
                         onChange={(value) =>
                           handleInputChange('openai_organization', value)
                         }
@@ -3264,7 +3403,7 @@ const EditChannelModal = (props) => {
                                 handleInputChange('base_url', value)
                               }
                               showClear
-                              disabled={isIonetLocked}
+                              disabled={isIonetLocked || sensitiveLocked}
                             />
                           </div>
                           <div>
@@ -3274,6 +3413,7 @@ const EditChannelModal = (props) => {
                               placeholder={t(
                                 '请输入默认 API 版本，例如：2025-04-01-preview',
                               )}
+                              disabled={sensitiveLocked}
                               onChange={(value) =>
                                 handleInputChange('other', value)
                               }
@@ -3287,6 +3427,7 @@ const EditChannelModal = (props) => {
                                 '默认 Responses API 版本，为空则使用上方版本',
                               )}
                               placeholder={t('例如：preview')}
+                              disabled={sensitiveLocked}
                               onChange={(value) =>
                                 handleChannelOtherSettingsChange(
                                   'azure_responses_version',
@@ -3319,7 +3460,7 @@ const EditChannelModal = (props) => {
                                 handleInputChange('base_url', value)
                               }
                               showClear
-                              disabled={isIonetLocked}
+                              disabled={isIonetLocked || sensitiveLocked}
                             />
                           </div>
                         </>
@@ -3351,7 +3492,7 @@ const EditChannelModal = (props) => {
                                 handleInputChange('base_url', value)
                               }
                               showClear
-                              disabled={isIonetLocked}
+                              disabled={isIonetLocked || sensitiveLocked}
                               extraText={t(
                                 '对于官方渠道，new-api已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写',
                               )}
@@ -3371,7 +3512,7 @@ const EditChannelModal = (props) => {
                               handleInputChange('base_url', value)
                             }
                             showClear
-                            disabled={isIonetLocked}
+                            disabled={isIonetLocked || sensitiveLocked}
                           />
                         </div>
                       )}
@@ -3390,7 +3531,7 @@ const EditChannelModal = (props) => {
                               handleInputChange('base_url', value)
                             }
                             showClear
-                            disabled={isIonetLocked}
+                            disabled={isIonetLocked || sensitiveLocked}
                           />
                         </div>
                       )}
@@ -3422,7 +3563,7 @@ const EditChannelModal = (props) => {
                               },
                             ]}
                             defaultValue='https://ark.cn-beijing.volces.com'
-                            disabled={isIonetLocked}
+                            disabled={isIonetLocked || sensitiveLocked}
                           />
                         </div>
                       )}

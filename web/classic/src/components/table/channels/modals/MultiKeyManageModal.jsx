@@ -50,7 +50,13 @@ import {
 
 const { Text } = Typography;
 
-const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
+const MultiKeyManageModal = ({
+  visible,
+  onCancel,
+  channel,
+  onRefresh,
+  canEditSensitive = false,
+}) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [keyStatusList, setKeyStatusList] = useState([]);
@@ -223,6 +229,10 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
 
   // Delete all disabled keys
   const handleDeleteDisabledKeys = async () => {
+    if (!canEditSensitive) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
     setOperationLoading((prev) => ({ ...prev, delete_disabled: true }));
 
     try {
@@ -249,6 +259,10 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
 
   // Delete a specific key
   const handleDeleteKey = async (keyIndex) => {
+    if (!canEditSensitive) {
+      showError(t('没有权限执行此操作'));
+      return;
+    }
     const operationId = `delete_${keyIndex}`;
     setOperationLoading((prev) => ({ ...prev, [operationId]: true }));
 
@@ -411,46 +425,70 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       key: 'action',
       fixed: 'right',
       width: 150,
-      render: (_, record) => (
-        <Space>
-          {record.status === 1 ? (
-            <Button
-              type='danger'
-              size='small'
-              loading={operationLoading[`disable_${record.index}`]}
-              onClick={() => handleDisableKey(record.index)}
-            >
-              {t('禁用')}
-            </Button>
-          ) : (
-            <Button
-              type='primary'
-              size='small'
-              loading={operationLoading[`enable_${record.index}`]}
-              onClick={() => handleEnableKey(record.index)}
-            >
-              {t('启用')}
-            </Button>
-          )}
-          <Popconfirm
-            title={t('确定要删除此密钥吗？')}
-            content={t('此操作不可撤销，将永久删除该密钥')}
-            onConfirm={() => handleDeleteKey(record.index)}
-            okType={'danger'}
-            position={'topRight'}
+      render: (_, record) => {
+        const deleteKeyButton = (
+          <Button
+            type='danger'
+            size='small'
+            disabled={!canEditSensitive}
+            loading={operationLoading[`delete_${record.index}`]}
           >
-            <Button
-              type='danger'
-              size='small'
-              loading={operationLoading[`delete_${record.index}`]}
+            {t('删除')}
+          </Button>
+        );
+        return (
+          <Space>
+            {record.status === 1 ? (
+              <Button
+                type='danger'
+                size='small'
+                loading={operationLoading[`disable_${record.index}`]}
+                onClick={() => handleDisableKey(record.index)}
+              >
+                {t('禁用')}
+              </Button>
+            ) : (
+              <Button
+                type='primary'
+                size='small'
+                loading={operationLoading[`enable_${record.index}`]}
+                onClick={() => handleEnableKey(record.index)}
+              >
+                {t('启用')}
+              </Button>
+            )}
+            <Popconfirm
+              title={t('确定要删除此密钥吗？')}
+              content={t('此操作不可撤销，将永久删除该密钥')}
+              onConfirm={() => handleDeleteKey(record.index)}
+              okType={'danger'}
+              position={'topRight'}
+              disabled={!canEditSensitive}
             >
-              {t('删除')}
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+              {canEditSensitive ? (
+                deleteKeyButton
+              ) : (
+                <Tooltip content={t('没有权限执行此操作')}>
+                  {deleteKeyButton}
+                </Tooltip>
+              )}
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
+
+  const deleteDisabledKeysButton = (
+    <Button
+      size='small'
+      type='warning'
+      disabled={!canEditSensitive}
+      loading={operationLoading.delete_disabled}
+    >
+      {t('删除自动禁用密钥')}
+    </Button>
+  );
 
   return (
     <Modal
@@ -678,14 +716,15 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                           onConfirm={handleDeleteDisabledKeys}
                           okType={'danger'}
                           position={'topRight'}
+                          disabled={!canEditSensitive}
                         >
-                          <Button
-                            size='small'
-                            type='warning'
-                            loading={operationLoading.delete_disabled}
-                          >
-                            {t('删除自动禁用密钥')}
-                          </Button>
+                          {canEditSensitive ? (
+                            deleteDisabledKeysButton
+                          ) : (
+                            <Tooltip content={t('没有权限执行此操作')}>
+                              {deleteDisabledKeysButton}
+                            </Tooltip>
+                          )}
                         </Popconfirm>
                       </Space>
                     </Col>

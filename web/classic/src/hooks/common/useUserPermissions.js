@@ -28,26 +28,31 @@ export const useUserPermissions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 加载用户权限（从用户信息接口获取）
+  // 加载用户权限（从用户信息接口获取），网络错误时自动重试，避免临时故障导致权限永久缺失
   const loadPermissions = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await API.get('/api/user/self');
-      if (res.data.success) {
-        const userPermissions = res.data.data.permissions;
-        setPermissions(userPermissions);
-        console.log('用户权限加载成功:', userPermissions);
-      } else {
+    const maxAttempts = 3;
+    setLoading(true);
+    setError(null);
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await API.get('/api/user/self');
+        if (res.data.success) {
+          setPermissions(res.data.data.permissions);
+          setLoading(false);
+          return;
+        }
         setError(res.data.message || '获取权限失败');
         console.error('获取权限失败:', res.data.message);
+        break;
+      } catch (error) {
+        setError('网络错误，请重试');
+        console.error('加载用户权限异常:', error);
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
       }
-    } catch (error) {
-      setError('网络错误，请重试');
-      console.error('加载用户权限异常:', error);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   useEffect(() => {

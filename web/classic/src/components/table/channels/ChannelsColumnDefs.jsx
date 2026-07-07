@@ -327,6 +327,7 @@ export const getChannelsColumns = ({
   setCurrentMultiKeyChannel,
   openUpstreamUpdateModal,
   detectChannelUpstreamUpdates,
+  canEditSensitive,
 }) => {
   return [
     {
@@ -695,7 +696,12 @@ export const getChannelsColumns = ({
               node: 'item',
               name: t('删除'),
               type: 'danger',
+              disabled: !canEditSensitive,
               onClick: () => {
+                if (!canEditSensitive) {
+                  showError(t('没有权限执行此操作'));
+                  return;
+                }
                 Modal.confirm({
                   title: t('确定是否要删除此渠道？'),
                   content: t('此修改将不可逆'),
@@ -717,7 +723,12 @@ export const getChannelsColumns = ({
               node: 'item',
               name: t('复制'),
               type: 'tertiary',
+              disabled: !canEditSensitive,
               onClick: () => {
+                if (!canEditSensitive) {
+                  showError(t('没有权限执行此操作'));
+                  return;
+                }
                 Modal.confirm({
                   title: t('确定是否要复制此渠道？'),
                   content: t('复制渠道的所有信息'),

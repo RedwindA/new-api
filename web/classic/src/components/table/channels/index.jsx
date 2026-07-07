@@ -49,12 +49,14 @@ const ChannelsPage = () => {
         tag={channelsData.editingTag}
         handleClose={() => channelsData.setShowEditTag(false)}
         refresh={channelsData.refresh}
+        canEditSensitive={channelsData.canEditSensitive}
       />
       <EditChannelModal
         refresh={channelsData.refresh}
         visible={channelsData.showEdit}
         handleClose={channelsData.closeEdit}
         editingChannel={channelsData.editingChannel}
+        canEditSensitive={channelsData.canEditSensitive}
       />
       <BatchTagModal {...channelsData} />
       <ModelTestModal {...channelsData} />
@@ -63,6 +65,7 @@ const ChannelsPage = () => {
         onCancel={() => channelsData.setShowMultiKeyManageModal(false)}
         channel={channelsData.currentMultiKeyChannel}
         onRefresh={channelsData.refresh}
+        canEditSensitive={channelsData.canEditSensitive}
       />
       <ChannelUpstreamUpdateModal
         visible={channelsData.showUpstreamUpdateModal}

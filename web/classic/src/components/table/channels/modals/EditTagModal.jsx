@@ -59,6 +59,7 @@ const MODEL_MAPPING_EXAMPLE = {
 const EditTagModal = (props) => {
   const { t } = useTranslation();
   const { visible, tag, handleClose, refresh } = props;
+  const canEditSensitive = props.canEditSensitive === true;
   const [loading, setLoading] = useState(false);
   const [originModelOptions, setOriginModelOptions] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
@@ -214,6 +215,7 @@ const EditTagModal = (props) => {
       data.models = formVals.models.join(',');
     }
     if (
+      canEditSensitive &&
       formVals.param_override !== undefined &&
       formVals.param_override !== null
     ) {
@@ -231,6 +233,7 @@ const EditTagModal = (props) => {
       data.param_override = trimmedParamOverride;
     }
     if (
+      canEditSensitive &&
       formVals.header_override !== undefined &&
       formVals.header_override !== null
     ) {
@@ -582,6 +585,7 @@ const EditTagModal = (props) => {
                   <Form.TextArea
                     field='param_override'
                     label={t('参数覆盖')}
+                    disabled={!canEditSensitive}
                     placeholder={
                       t('此项可选，用于覆盖请求参数。不支持覆盖 stream 参数') +
                       '\n' +
@@ -599,8 +603,14 @@ const EditTagModal = (props) => {
                     extraText={
                       <div className='flex gap-2 flex-wrap'>
                         <Text
-                          className='!text-semi-color-primary cursor-pointer'
+                          disabled={!canEditSensitive}
+                          className={
+                            canEditSensitive
+                              ? '!text-semi-color-primary cursor-pointer'
+                              : ''
+                          }
                           onClick={() =>
+                            canEditSensitive &&
                             handleInputChange(
                               'param_override',
                               JSON.stringify({ temperature: 0 }, null, 2),
@@ -610,8 +620,14 @@ const EditTagModal = (props) => {
                           {t('旧格式模板')}
                         </Text>
                         <Text
-                          className='!text-semi-color-primary cursor-pointer'
+                          disabled={!canEditSensitive}
+                          className={
+                            canEditSensitive
+                              ? '!text-semi-color-primary cursor-pointer'
+                              : ''
+                          }
                           onClick={() =>
+                            canEditSensitive &&
                             handleInputChange(
                               'param_override',
                               JSON.stringify(
@@ -641,8 +657,14 @@ const EditTagModal = (props) => {
                           {t('新格式模板')}
                         </Text>
                         <Text
-                          className='!text-semi-color-primary cursor-pointer'
+                          disabled={!canEditSensitive}
+                          className={
+                            canEditSensitive
+                              ? '!text-semi-color-primary cursor-pointer'
+                              : ''
+                          }
                           onClick={() =>
+                            canEditSensitive &&
                             handleInputChange('param_override', null)
                           }
                         >
@@ -655,6 +677,7 @@ const EditTagModal = (props) => {
                   <Form.TextArea
                     field='header_override'
                     label={t('请求头覆盖')}
+                    disabled={!canEditSensitive}
                     placeholder={
                       t('此项可选，用于覆盖请求头参数') +
                       '\n' +
@@ -670,8 +693,14 @@ const EditTagModal = (props) => {
                       <div className='flex flex-col gap-1'>
                         <div className='flex gap-2 flex-wrap items-center'>
                           <Text
-                            className='!text-semi-color-primary cursor-pointer'
+                            disabled={!canEditSensitive}
+                            className={
+                              canEditSensitive
+                                ? '!text-semi-color-primary cursor-pointer'
+                                : ''
+                            }
                             onClick={() =>
+                              canEditSensitive &&
                               handleInputChange(
                                 'header_override',
                                 JSON.stringify(
@@ -689,8 +718,14 @@ const EditTagModal = (props) => {
                             {t('填入模板')}
                           </Text>
                           <Text
-                            className='!text-semi-color-primary cursor-pointer'
+                            disabled={!canEditSensitive}
+                            className={
+                              canEditSensitive
+                                ? '!text-semi-color-primary cursor-pointer'
+                                : ''
+                            }
                             onClick={() =>
+                              canEditSensitive &&
                               handleInputChange('header_override', null)
                             }
                           >

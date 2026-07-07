@@ -23,6 +23,7 @@ import {
   Dropdown,
   Modal,
   Switch,
+  Tooltip,
   Typography,
   Select,
 } from '@douyinfe/semi-ui';
@@ -56,29 +57,62 @@ const ChannelsActions = ({
   activePage,
   pageSize,
   setActivePage,
+  canEditSensitive,
   t,
 }) => {
+  const batchDeleteButton = (
+    <Button
+      size='small'
+      disabled={!enableBatchDelete || !canEditSensitive}
+      type='danger'
+      className='w-full md:w-auto'
+      onClick={() => {
+        if (!canEditSensitive) return;
+        Modal.confirm({
+          title: t('确定是否要删除所选通道？'),
+          content: t('此修改将不可逆'),
+          onOk: () => batchDeleteChannels(),
+        });
+      }}
+    >
+      {t('删除所选通道')}
+    </Button>
+  );
+
+  const deleteDisabledButton = (
+    <Button
+      size='small'
+      type='danger'
+      className='w-full'
+      disabled={!canEditSensitive}
+      onClick={() => {
+        if (!canEditSensitive) return;
+        Modal.confirm({
+          title: t('确定是否要删除禁用通道？'),
+          content: t('此修改将不可逆'),
+          onOk: () => deleteAllDisabledChannels(),
+          size: 'sm',
+          centered: true,
+        });
+      }}
+    >
+      {t('删除禁用通道')}
+    </Button>
+  );
+
   return (
     <div className='flex flex-col gap-2'>
       {/* 第一行：批量操作按钮 + 设置开关 */}
       <div className='flex flex-col md:flex-row justify-between gap-2'>
         {/* 左侧：批量操作按钮 */}
         <div className='flex flex-wrap md:flex-nowrap items-center gap-2 w-full md:w-auto order-2 md:order-1'>
-          <Button
-            size='small'
-            disabled={!enableBatchDelete}
-            type='danger'
-            className='w-full md:w-auto'
-            onClick={() => {
-              Modal.confirm({
-                title: t('确定是否要删除所选通道？'),
-                content: t('此修改将不可逆'),
-                onOk: () => batchDeleteChannels(),
-              });
-            }}
-          >
-            {t('删除所选通道')}
-          </Button>
+          {canEditSensitive ? (
+            batchDeleteButton
+          ) : (
+            <Tooltip content={t('没有权限执行此操作')}>
+              {batchDeleteButton}
+            </Tooltip>
+          )}
 
           <Button
             size='small'
@@ -193,22 +227,13 @@ const ChannelsActions = ({
                   </Button>
                 </Dropdown.Item>
                 <Dropdown.Item>
-                  <Button
-                    size='small'
-                    type='danger'
-                    className='w-full'
-                    onClick={() => {
-                      Modal.confirm({
-                        title: t('确定是否要删除禁用通道？'),
-                        content: t('此修改将不可逆'),
-                        onOk: () => deleteAllDisabledChannels(),
-                        size: 'sm',
-                        centered: true,
-                      });
-                    }}
-                  >
-                    {t('删除禁用通道')}
-                  </Button>
+                  {canEditSensitive ? (
+                    deleteDisabledButton
+                  ) : (
+                    <Tooltip content={t('没有权限执行此操作')}>
+                      {deleteDisabledButton}
+                    </Tooltip>
+                  )}
                 </Dropdown.Item>
               </Dropdown.Menu>
             }
