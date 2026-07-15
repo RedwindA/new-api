@@ -1,10 +1,13 @@
 package model
 
 import (
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func seedFlowQuotaData(t *testing.T, quotaData QuotaData) {
@@ -190,4 +193,84 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	require.Equal(t, 60, rows[0].TokenUsed)
 	require.Equal(t, "default", rows[1].UseGroup)
 	require.Equal(t, 25, rows[1].Quota)
+}
+
+func TestSaveQuotaDataCacheDoesNotBlockNewQuotaData(t *testing.T) {
+	truncateTables(t)
+	CacheQuotaDataLock.Lock()
+	CacheQuotaData = make(map[string]*QuotaData)
+	CacheQuotaDataLock.Unlock()
+
+	LogQuotaData(QuotaDataLogParams{
+		UserID:    1,
+		Username:  "alice",
+		ModelName: "gpt-a",
+		CreatedAt: 3661,
+		Quota:     100,
+	})
+
+	queryStarted := make(chan struct{})
+	releaseQuery := make(chan struct{})
+	var queryOnce sync.Once
+	const callbackName = "test:block-quota-data-save"
+	require.NoError(t, DB.Callback().Query().Before("gorm:query").Register(callbackName, func(_ *gorm.DB) {
+		queryOnce.Do(func() {
+			close(queryStarted)
+			<-releaseQuery
+		})
+	}))
+	released := false
+	t.Cleanup(func() {
+		if !released {
+			close(releaseQuery)
+		}
+		DB.Callback().Query().Remove(callbackName)
+	})
+
+	saveDone := make(chan struct{})
+	go func() {
+		SaveQuotaDataCache()
+		close(saveDone)
+	}()
+
+	select {
+	case <-queryStarted:
+	case <-time.After(2 * time.Second):
+		require.FailNow(t, "quota data save did not reach the database query")
+	}
+
+	logDone := make(chan struct{})
+	go func() {
+		LogQuotaData(QuotaDataLogParams{
+			UserID:    1,
+			Username:  "alice",
+			ModelName: "gpt-a",
+			CreatedAt: 3661,
+			Quota:     50,
+		})
+		close(logDone)
+	}()
+
+	select {
+	case <-logDone:
+	case <-time.After(2 * time.Second):
+		require.FailNow(t, "new quota data was blocked by database persistence")
+	}
+
+	close(releaseQuery)
+	released = true
+	select {
+	case <-saveDone:
+	case <-time.After(2 * time.Second):
+		require.FailNow(t, "quota data save did not finish")
+	}
+
+	CacheQuotaDataLock.Lock()
+	cachedQuotaData := make([]*QuotaData, 0, len(CacheQuotaData))
+	for _, quotaData := range CacheQuotaData {
+		cachedQuotaData = append(cachedQuotaData, quotaData)
+	}
+	CacheQuotaDataLock.Unlock()
+	require.Len(t, cachedQuotaData, 1)
+	require.Equal(t, 50, cachedQuotaData[0].Quota)
 }
