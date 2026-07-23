@@ -107,7 +107,6 @@ export function NumericSpinnerInput({
     if (clamped !== (value ?? 0)) {
       onChange(clamped)
     }
-    onCommit?.()
   }
 
   const handleControlBlur = (e: React.FocusEvent<HTMLDivElement>) => {
@@ -124,6 +123,7 @@ export function NumericSpinnerInput({
     if (e.key === 'Enter') {
       e.preventDefault()
       commitValue()
+      onCommit?.()
     } else if (e.key === 'Escape') {
       setEditing(false)
       setLocalValue(String(value ?? 0))
