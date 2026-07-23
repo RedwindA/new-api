@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -120,6 +121,101 @@ func TestRelayErrorHandlerKeepsOpenAIErrorMessage(t *testing.T) {
 
 	require.NotNil(t, newAPIError)
 	require.Equal(t, message, newAPIError.Error())
+}
+
+func TestRelayErrorHandlerMasksNewAPIModelDetails(t *testing.T) {
+	testCases := []struct {
+		name            string
+		statusCode      int
+		errorCode       types.ErrorCode
+		originalMessage string
+	}{
+		{
+			name:            "no available channel",
+			statusCode:      http.StatusServiceUnavailable,
+			errorCode:       types.ErrorCodeModelNotFound,
+			originalMessage: "分组 default 下模型 gpt-test 无可用渠道（distributor）",
+		},
+		{
+			name:            "get channel failed",
+			statusCode:      http.StatusServiceUnavailable,
+			errorCode:       types.ErrorCodeModelNotFound,
+			originalMessage: "獲取分組 default 下模型 gpt-test 的可用管道失敗（distributor）：快取錯誤",
+		},
+		{
+			name:            "model access denied",
+			statusCode:      http.StatusForbidden,
+			errorCode:       types.ErrorCodeModelAccessDenied,
+			originalMessage: "This token has no access to model gpt-test",
+		},
+		{
+			name:            "legacy model access denied in English",
+			statusCode:      http.StatusForbidden,
+			originalMessage: "This token has no access to model gpt-test",
+		},
+		{
+			name:            "legacy model access denied in Simplified Chinese",
+			statusCode:      http.StatusForbidden,
+			originalMessage: "该令牌无权访问模型 gpt-test",
+		},
+		{
+			name:            "legacy model access denied in Traditional Chinese",
+			statusCode:      http.StatusForbidden,
+			originalMessage: "該令牌無權存取模型 gpt-test",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := fmt.Sprintf(
+				`{"error":{"message":%q,"type":"new_api_error","code":%q}}`,
+				tc.originalMessage,
+				tc.errorCode,
+			)
+			resp := &http.Response{
+				StatusCode: tc.statusCode,
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}
+
+			newAPIError := RelayErrorHandler(context.Background(), resp, false)
+
+			require.NotNil(t, newAPIError)
+			assert.Equal(t, tc.originalMessage, newAPIError.Error())
+			assert.Equal(t, "The requested model is temporarily unavailable, please try again later", newAPIError.ToOpenAIError().Message)
+			assert.Equal(t, tc.errorCode, newAPIError.GetErrorCode())
+			assert.Equal(t, tc.statusCode, newAPIError.StatusCode)
+		})
+	}
+}
+
+func TestRelayErrorHandlerKeepsOtherUpstreamModelNotFoundMessage(t *testing.T) {
+	message := "The model 'gpt-test' does not exist"
+	body := `{"error":{"message":"` + message + `","type":"invalid_request_error","code":"model_not_found"}}`
+	resp := &http.Response{
+		StatusCode: http.StatusServiceUnavailable,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	newAPIError := RelayErrorHandler(context.Background(), resp, false)
+
+	require.NotNil(t, newAPIError)
+	assert.Equal(t, message, newAPIError.Error())
+	assert.Equal(t, message, newAPIError.ToOpenAIError().Message)
+}
+
+func TestRelayErrorHandlerKeepsOtherNewAPIForbiddenMessage(t *testing.T) {
+	message := "No permission to access this group"
+	body := `{"error":{"message":"` + message + `","type":"new_api_error","code":""}}`
+	resp := &http.Response{
+		StatusCode: http.StatusForbidden,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	newAPIError := RelayErrorHandler(context.Background(), resp, false)
+
+	require.NotNil(t, newAPIError)
+	assert.Equal(t, message, newAPIError.Error())
+	assert.Equal(t, message, newAPIError.ToOpenAIError().Message)
 }
 
 func TestRelayErrorHandlerKeepsInvalidJSONBodyInDebugLog(t *testing.T) {

@@ -116,9 +116,28 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 		// General format error (OpenAI, Anthropic, Gemini, etc.)
 		oaiError := errResponse.TryToOpenAIError()
 		if oaiError != nil {
+			originalMessage := oaiError.Message
+			errorCode := fmt.Sprint(oaiError.Code)
+			legacyModelAccessDenied := resp.StatusCode == http.StatusForbidden &&
+				errorCode == "" &&
+				(strings.HasPrefix(originalMessage, "This token has no access to model ") ||
+					strings.HasPrefix(originalMessage, "该令牌无权访问模型 ") ||
+					strings.HasPrefix(originalMessage, "該令牌無權存取模型 "))
+			modelNotFound := resp.StatusCode == http.StatusServiceUnavailable &&
+				errorCode == string(types.ErrorCodeModelNotFound)
+			modelAccessDenied := resp.StatusCode == http.StatusForbidden &&
+				errorCode == string(types.ErrorCodeModelAccessDenied)
+			maskPublicMessage := oaiError.Type == string(types.ErrorTypeNewAPIError) &&
+				(modelNotFound || modelAccessDenied || legacyModelAccessDenied)
+			if maskPublicMessage {
+				oaiError.Message = "The requested model is temporarily unavailable, please try again later"
+			}
 			newApiErr = types.WithOpenAIError(*oaiError, resp.StatusCode)
+			if maskPublicMessage {
+				newApiErr.Err = errors.New(originalMessage)
+			}
 			if showBodyWhenFail {
-				newApiErr.Err = buildErrWithBody(newApiErr.Error())
+				newApiErr.Err = buildErrWithBody(originalMessage)
 			}
 			return
 		}
