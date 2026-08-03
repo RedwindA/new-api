@@ -691,6 +691,9 @@ func closeDB(db *gorm.DB) error {
 }
 
 func CloseDB() error {
+	if err := closeRequestCaptureDB(); err != nil {
+		return err
+	}
 	if LOG_DB != DB {
 		err := closeDB(LOG_DB)
 		if err != nil {

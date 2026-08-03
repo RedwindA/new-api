@@ -338,6 +338,9 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
+	if err = model.InitRequestCaptureDB(); err != nil {
+		return err
+	}
 
 	// Initialize Redis
 	err = common.InitRedisClient()

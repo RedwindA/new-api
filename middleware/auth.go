@@ -440,7 +440,7 @@ func TokenAuth() func(c *gin.Context) {
 		if err != nil {
 			return
 		}
-		c.Next()
+		captureTargetUserRelay(c)
 	}
 }
 
