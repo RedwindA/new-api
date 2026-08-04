@@ -398,6 +398,9 @@ func GenRelayInfoResponses(c *gin.Context, request *dto.OpenAIResponsesRequest) 
 	info := genBaseRelayInfo(c, request)
 	info.RelayMode = relayconstant.RelayModeResponses
 	info.RelayFormat = types.RelayFormatOpenAIResponses
+	if request.Reasoning != nil {
+		info.ReasoningEffort = request.Reasoning.Effort
+	}
 
 	info.ResponsesUsageInfo = &ResponsesUsageInfo{
 		BuiltInTools: make(map[string]*BuildInToolInfo),
@@ -439,6 +442,9 @@ func GenRelayInfoImage(c *gin.Context, request dto.Request) *RelayInfo {
 func GenRelayInfoOpenAI(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatOpenAI
+	if openAIRequest, ok := request.(*dto.GeneralOpenAIRequest); ok {
+		info.ReasoningEffort = openAIRequest.ReasoningEffort
+	}
 	return info
 }
 

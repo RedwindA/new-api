@@ -1,13 +1,59 @@
 package common
 
 import (
+	"net/http/httptest"
 	"testing"
 
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGenRelayInfoCapturesClientReasoningEffort(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		relayFormat types.RelayFormat
+		request     dto.Request
+		wantEffort  string
+	}{
+		{
+			name:        "chat completions",
+			path:        "/v1/chat/completions",
+			relayFormat: types.RelayFormatOpenAI,
+			request: &dto.GeneralOpenAIRequest{
+				Model:           "gpt-5.6",
+				ReasoningEffort: "high",
+			},
+			wantEffort: "high",
+		},
+		{
+			name:        "responses",
+			path:        "/v1/responses",
+			relayFormat: types.RelayFormatOpenAIResponses,
+			request: &dto.OpenAIResponsesRequest{
+				Model:     "gpt-5.6",
+				Reasoning: &dto.Reasoning{Effort: "max"},
+			},
+			wantEffort: "max",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			context, _ := gin.CreateTestContext(httptest.NewRecorder())
+			context.Request = httptest.NewRequest("POST", tt.path, nil)
+
+			info, err := GenRelayInfo(context, tt.relayFormat, tt.request, nil)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantEffort, info.ReasoningEffort)
+		})
+	}
+}
 
 func TestRelayInfoGetFinalRequestRelayFormatPrefersExplicitFinal(t *testing.T) {
 	info := &RelayInfo{
