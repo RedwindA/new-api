@@ -670,6 +670,29 @@ func (user *User) UpdateWithTx(tx *gorm.DB, updatePassword bool) error {
 	return tx.First(user, user.Id).Error
 }
 
+// UpdateAccessToken persists only the access_token column for the user.
+//
+// It deliberately avoids the broad Update()/UpdateWithTx() path, which re-writes
+// aff_quota/aff_count/aff_history_quota from a stale in-memory snapshot and
+// races with a concurrent TransferAffQuotaToQuota: a transfer that commits an
+// aff_quota deduction between this user's read and its write would have that
+// deduction reverted by the stale aff_quota written back here, while the
+// matching quota credit survives (quota is omitted on the broad update). That
+// lost-update lets a user rotate their token concurrently with a transfer and
+// keep the quota gain for free. A single-column update carries no billing
+// fields, so there is nothing to clobber.
+func (user *User) UpdateAccessToken(token string) error {
+	result := DB.Model(&User{}).Where("id = ?", user.Id).Update("access_token", token)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	user.SetAccessToken(token)
+	return nil
+}
+
 func (user *User) Edit(updatePassword bool) error {
 	if err := user.EditWithTx(DB, updatePassword); err != nil {
 		return err

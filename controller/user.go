@@ -387,14 +387,20 @@ func GenerateAccessToken(c *gin.Context) {
 		common.SysLog("failed to generate key: " + err.Error())
 		return
 	}
-	user.SetAccessToken(key)
 
-	if model.DB.Where("access_token = ?", user.AccessToken).First(user).RowsAffected != 0 {
+	// Duplicate-token check: scan into a throwaway struct so the working user
+	// snapshot is not mutated by the lookup.
+	if model.DB.Where("access_token = ?", key).First(&model.User{}).RowsAffected != 0 {
 		common.ApiErrorI18n(c, i18n.MsgUuidDuplicate)
 		return
 	}
 
-	if err := user.Update(false); err != nil {
+	// Persist only the access_token column. A broad user.Update(false) here would
+	// re-write aff_quota/aff_count/aff_history_quota from this stale snapshot,
+	// racing with concurrent TransferAffQuota and reverting its aff_quota
+	// deduction while the quota credit persists — a lost-update that inflates
+	// quota for free. See model.User.UpdateAccessToken.
+	if err := user.UpdateAccessToken(key); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -402,7 +408,7 @@ func GenerateAccessToken(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    user.AccessToken,
+		"data":    key,
 	})
 	return
 }

@@ -218,3 +218,83 @@ func TestResetUserPasswordByEmailRequiresSingleActiveMatch(t *testing.T) {
 	err = ResetUserPasswordByEmail("missing@example.com", "NewPassword123")
 	require.True(t, errors.Is(err, ErrEmailNotFound))
 }
+
+// TestUpdateAccessTokenDoesNotTouchBillingFields guards the lost-update race
+// between GenerateAccessToken (token rotation) and TransferAffQuotaToQuota
+// (affiliate -> quota transfer). Rotating the access token from a stale
+// snapshot must not revert a concurrently-committed aff_quota deduction nor
+// touch quota/used_quota/request_count/aff_count/aff_history_quota.
+//
+// Reproduces the aff_race attack shape: A reads a stale snapshot, B commits a
+// transfer under FOR UPDATE in between, then A persists. With the old broad
+// user.Update(false) path A would write the stale aff_quota back (reverting the
+// deduction) while the quota credit survives, inflating quota for free. The
+// single-column UpdateAccessToken path carries no billing fields to clobber.
+func TestUpdateAccessTokenDoesNotTouchBillingFields(t *testing.T) {
+	setupUserUpdateTestState(t)
+
+	user := User{
+		Id:              7,
+		Username:        "token-rotate-user",
+		Password:        "password",
+		Status:          common.UserStatusEnabled,
+		Quota:           1000,
+		UsedQuota:       20,
+		RequestCount:    3,
+		AffQuota:        500000,
+		AffCount:        2,
+		AffHistoryQuota: 600000,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+
+	// A: read a stale snapshot (no lock), as GenerateAccessToken does.
+	staleUser, err := GetUserById(user.Id, true)
+	require.NoError(t, err)
+
+	// B: a concurrent TransferAffQuota commits under FOR UPDATE, deducting
+	// aff_quota and crediting quota.
+	require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+		var fresh User
+		if err := lockForUpdate(tx).First(&fresh, user.Id).Error; err != nil {
+			return err
+		}
+		fresh.AffQuota -= 500000
+		fresh.Quota += 500000
+		return tx.Save(&fresh).Error
+	}))
+
+	// A: rotate the token from the stale snapshot. Must not clobber the
+	// transfer's aff_quota deduction or quota credit.
+	require.NoError(t, staleUser.UpdateAccessToken("new-rotated-token-1234567890"))
+
+	var got User
+	require.NoError(t, DB.First(&got, user.Id).Error)
+	assert.Equal(t, "new-rotated-token-1234567890", got.GetAccessToken())
+	assert.Equal(t, 0, got.AffQuota, "aff_quota deduction from transfer must not be reverted by token rotation")
+	assert.Equal(t, 501000, got.Quota, "quota credit from transfer must survive")
+	assert.Equal(t, 20, got.UsedQuota)
+	assert.Equal(t, 3, got.RequestCount)
+	assert.Equal(t, 2, got.AffCount)
+	assert.Equal(t, 600000, got.AffHistoryQuota)
+}
+
+func TestUpdateAccessTokenRejectsDeletedUser(t *testing.T) {
+	setupUserUpdateTestState(t)
+
+	user := User{
+		Id:       8,
+		Username: "deleted-token-user",
+		Password: "password",
+		Status:   common.UserStatusEnabled,
+	}
+	user.SetAccessToken("old-token")
+	require.NoError(t, DB.Create(&user).Error)
+
+	staleUser, err := GetUserById(user.Id, true)
+	require.NoError(t, err)
+	require.NoError(t, DB.Unscoped().Delete(&User{}, user.Id).Error)
+
+	err = staleUser.UpdateAccessToken("new-token")
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	assert.Equal(t, "old-token", staleUser.GetAccessToken())
+}
