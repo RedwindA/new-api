@@ -181,7 +181,8 @@ func TestRelayErrorHandlerMasksNewAPIModelDetails(t *testing.T) {
 
 			require.NotNil(t, newAPIError)
 			assert.Equal(t, tc.originalMessage, newAPIError.Error())
-			assert.Equal(t, "The requested model is temporarily unavailable, please try again later", newAPIError.ToOpenAIError().Message)
+			assert.Equal(t, types.ModelUnavailableMessage, newAPIError.ToOpenAIError().Message)
+			assert.Equal(t, types.ModelUnavailableMessage, newAPIError.ToClaudeError().Message)
 			assert.Equal(t, tc.errorCode, newAPIError.GetErrorCode())
 			assert.Equal(t, tc.statusCode, newAPIError.StatusCode)
 		})
@@ -201,6 +202,7 @@ func TestRelayErrorHandlerKeepsOtherUpstreamModelNotFoundMessage(t *testing.T) {
 	require.NotNil(t, newAPIError)
 	assert.Equal(t, message, newAPIError.Error())
 	assert.Equal(t, message, newAPIError.ToOpenAIError().Message)
+	assert.Equal(t, message, newAPIError.ToClaudeError().Message)
 }
 
 func TestRelayErrorHandlerKeepsOtherNewAPIForbiddenMessage(t *testing.T) {
@@ -216,6 +218,7 @@ func TestRelayErrorHandlerKeepsOtherNewAPIForbiddenMessage(t *testing.T) {
 	require.NotNil(t, newAPIError)
 	assert.Equal(t, message, newAPIError.Error())
 	assert.Equal(t, message, newAPIError.ToOpenAIError().Message)
+	assert.Equal(t, message, newAPIError.ToClaudeError().Message)
 }
 
 func TestRelayErrorHandlerKeepsInvalidJSONBodyInDebugLog(t *testing.T) {

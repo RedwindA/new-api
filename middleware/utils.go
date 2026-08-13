@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -14,10 +15,16 @@ func abortWithOpenAiMessage(c *gin.Context, statusCode int, message string, code
 	if len(code) > 0 {
 		codeStr = string(code[0])
 	}
+	publicMessage := message
+	maskModelDetails := (statusCode == http.StatusServiceUnavailable && codeStr == string(types.ErrorCodeModelNotFound)) ||
+		(statusCode == http.StatusForbidden && codeStr == string(types.ErrorCodeModelAccessDenied))
+	if maskModelDetails {
+		publicMessage = types.ModelUnavailableMessage
+	}
 	userId := c.GetInt("id")
 	c.JSON(statusCode, gin.H{
 		"error": gin.H{
-			"message": common.MessageWithRequestId(message, c.GetString(common.RequestIdKey)),
+			"message": common.MessageWithRequestId(publicMessage, c.GetString(common.RequestIdKey)),
 			"type":    "new_api_error",
 			"code":    codeStr,
 		},

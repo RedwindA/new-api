@@ -130,7 +130,7 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 			maskPublicMessage := oaiError.Type == string(types.ErrorTypeNewAPIError) &&
 				(modelNotFound || modelAccessDenied || legacyModelAccessDenied)
 			if maskPublicMessage {
-				oaiError.Message = "The requested model is temporarily unavailable, please try again later"
+				oaiError.Message = types.ModelUnavailableMessage
 			}
 			newApiErr = types.WithOpenAIError(*oaiError, resp.StatusCode)
 			if maskPublicMessage {

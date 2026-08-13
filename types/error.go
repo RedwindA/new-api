@@ -37,6 +37,8 @@ const (
 
 type ErrorCode string
 
+const ModelUnavailableMessage = "The requested model is temporarily unavailable, please try again later"
+
 const (
 	ErrorCodeInvalidRequest         ErrorCode = "invalid_request"
 	ErrorCodeSensitiveWordsDetected ErrorCode = "sensitive_words_detected"
@@ -217,7 +219,7 @@ func (e *NewAPIError) ToClaudeError() ClaudeError {
 	case ErrorTypeOpenAIError:
 		if openAIError, ok := e.RelayError.(OpenAIError); ok {
 			result = ClaudeError{
-				Message: e.Error(),
+				Message: openAIError.Message,
 				Type:    fmt.Sprintf("%v", openAIError.Code),
 			}
 		}
