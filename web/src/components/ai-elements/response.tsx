@@ -38,9 +38,11 @@ import type { ResponseProps } from './response-types'
 
 const DEFAULT_PARSER_ID = 'new-api-response'
 const MAX_PARSED_MARKDOWN_CHARS = 20_000
-const markdownByParserId = new Map<string, ReturnType<typeof getMarkdown>>()
+type MarkdownInstance = ReturnType<typeof getMarkdown>
 
-function getCachedMarkdown(parserId: string) {
+const markdownByParserId = new Map<string, MarkdownInstance>()
+
+function getCachedMarkdown(parserId: string): MarkdownInstance {
   const cached = markdownByParserId.get(parserId)
   if (cached != null) {
     return cached

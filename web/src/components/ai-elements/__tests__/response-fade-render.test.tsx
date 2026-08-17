@@ -20,7 +20,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { Response } from '../response'
-import { FADE_DURATION_MS, FADE_STAGGER_MAX_MS } from '../response-fade'
+import {
+  FADE_DURATION_MS,
+  FADE_HYDRATION_THRESHOLD,
+  FADE_STAGGER_MAX_MS,
+} from '../response-fade'
 
 afterEach(() => {
   cleanup()
@@ -86,6 +90,14 @@ describe('Response streaming fade', () => {
     expect(
       fades.every((node) => !(node.textContent ?? '').includes('final'))
     ).toBe(true)
+  })
+
+  test('suppresses fades on the first streaming render of hydrated content', () => {
+    const hydrated = 'word '.repeat(FADE_HYDRATION_THRESHOLD)
+
+    render(<Response final={false}>{hydrated}</Response>)
+
+    expect(document.querySelectorAll('[data-stream-fade]')).toHaveLength(0)
   })
 
   test('drops all fade wrappers once the stream settles', () => {

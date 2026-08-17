@@ -94,3 +94,32 @@ describe('PlaygroundMessageEditor leave warning', () => {
     expect(screen.queryByText(leavePrompt)).not.toBeInTheDocument()
   })
 })
+
+describe('PlaygroundMessageEditor beforeunload guard', () => {
+  test('blocks page unload while the edit has unsaved changes', () => {
+    renderEditor({ editText: 'changed' })
+
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  test('stops blocking page unload after the edit reverts to the original text', () => {
+    const { rerender } = renderEditor({ editText: 'changed' })
+
+    rerender(
+      <PlaygroundMessageEditor
+        editText='original'
+        message={userMessage}
+        onEditTextChange={() => undefined}
+        originalText='original'
+      />
+    )
+
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+  })
+})
