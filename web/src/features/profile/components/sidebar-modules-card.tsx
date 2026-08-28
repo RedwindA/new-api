@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { LayoutDashboard } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -31,8 +31,15 @@ import {
 } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Switch } from '@/components/ui/switch'
+import { parseSidebarConfig } from '@/hooks/use-sidebar-config'
+import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+
+import {
+  getVisiblePersonalSidebarSections,
+  type PersonalSidebarSectionDef,
+} from '../lib/personal-sidebar-sections'
 
 type SidebarModuleConfig = {
   enabled: boolean
@@ -41,21 +48,23 @@ type SidebarModuleConfig = {
 
 type SidebarModulesConfig = Record<string, SidebarModuleConfig>
 
-type SectionDef = {
-  key: string
-  title: string
-  description: string
-  modules: { key: string; title: string; description: string }[]
-}
-
 export function SidebarModulesCard() {
   const { t } = useTranslation()
+  const { status } = useStatus()
   const [loading, setLoading] = useState(false)
   const [config, setConfig] = useState<SidebarModulesConfig>({})
   const currentUser = useAuthStore((s) => s.auth.user)
   const setUser = useAuthStore((s) => s.auth.setUser)
 
-  const sectionDefs: SectionDef[] = [
+  const adminConfig = useMemo(
+    () =>
+      parseSidebarConfig(
+        status?.SidebarModulesAdmin as string | null | undefined
+      ),
+    [status?.SidebarModulesAdmin]
+  )
+
+  const sectionDefs: PersonalSidebarSectionDef[] = [
     {
       key: 'chat',
       title: t('Chat Area'),
@@ -123,6 +132,11 @@ export function SidebarModulesCard() {
       ],
     },
   ]
+
+  const visibleSections = getVisiblePersonalSidebarSections(
+    sectionDefs,
+    adminConfig
+  )
 
   const loadConfig = useCallback(async () => {
     try {
@@ -192,13 +206,25 @@ export function SidebarModulesCard() {
   }
 
   const handleReset = () => {
-    const defaults: SidebarModulesConfig = {}
-    for (const sec of sectionDefs) {
-      defaults[sec.key] = { enabled: true }
-      for (const mod of sec.modules) defaults[sec.key][mod.key] = true
-    }
-    setConfig(defaults)
+    setConfig((prev) => {
+      const next: SidebarModulesConfig = { ...prev }
+      for (const sec of visibleSections) {
+        const sectionConfig: SidebarModuleConfig = {
+          ...next[sec.key],
+          enabled: true,
+        }
+        for (const mod of sec.modules) {
+          sectionConfig[mod.key] = true
+        }
+        next[sec.key] = sectionConfig
+      }
+      return next
+    })
     toast.success(t('Reset to default configuration'))
+  }
+
+  if (visibleSections.length === 0) {
+    return null
   }
 
   return (
@@ -219,7 +245,7 @@ export function SidebarModulesCard() {
         </div>
       </CardHeader>
       <CardContent className='space-y-4 p-3 sm:space-y-5 sm:p-5'>
-        {sectionDefs.map((section) => {
+        {visibleSections.map((section) => {
           const sectionEnabled = config[section.key]?.enabled !== false
           return (
             <div

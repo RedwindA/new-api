@@ -22,12 +22,12 @@ import type { NavGroup, NavItem } from '@/components/layout/types'
 import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
-type SidebarSectionConfig = {
+export type SidebarSectionConfig = {
   enabled: boolean
   [key: string]: boolean
 }
 
-type SidebarModulesAdminConfig = Record<string, SidebarSectionConfig>
+export type SidebarModulesAdminConfig = Record<string, SidebarSectionConfig>
 
 // User-layer config is shape-identical to admin, but may be null
 // to signal "no narrowing" (empty/invalid/legacy users).
@@ -121,7 +121,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
 /**
  * Parse backend SidebarModulesAdmin configuration
  */
-function parseSidebarConfig(
+export function parseSidebarConfig(
   value: string | null | undefined
 ): SidebarModulesAdminConfig {
   // If empty string, null, or undefined, use default config
@@ -160,6 +160,21 @@ function parseUserSidebarConfig(
 }
 
 /**
+ * Admin-layer visibility: a module is allowed only when its section exists,
+ * the section is enabled, and the module key is strictly `true`.
+ */
+export function isAdminSidebarModuleEnabled(
+  adminConfig: SidebarModulesAdminConfig,
+  section: string,
+  module: string
+): boolean {
+  const adminSection = adminConfig[section]
+  return Boolean(
+    adminSection && adminSection.enabled && adminSection[module] === true
+  )
+}
+
+/**
  * Check if a module is enabled. Admin config is the first (authoritative)
  * layer: if admin disables a section/module it is always hidden. User config
  * is a second narrower layer: it can only further hide what admin allowed.
@@ -177,10 +192,7 @@ function isModuleEnabled(
   }
 
   const { section, module } = mapping
-  const adminSection = adminConfig[section]
-  const adminAllowed = Boolean(
-    adminSection && adminSection.enabled && adminSection[module] === true
-  )
+  const adminAllowed = isAdminSidebarModuleEnabled(adminConfig, section, module)
   if (!adminAllowed) return false
 
   if (!userConfig) return true
@@ -201,8 +213,11 @@ function isNavItemVisible(
 ): boolean {
   // Handle dynamic chat presets type — also runs the admin × user AND gate
   if ('type' in item && item.type === 'chat-presets') {
-    const adminChat = adminConfig.chat
-    const adminAllowed = Boolean(adminChat?.enabled && adminChat.chat === true)
+    const adminAllowed = isAdminSidebarModuleEnabled(
+      adminConfig,
+      'chat',
+      'chat'
+    )
     if (!adminAllowed) return false
     if (!userConfig) return true
     const userChat = userConfig.chat
