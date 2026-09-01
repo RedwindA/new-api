@@ -31,6 +31,18 @@ func TestAbortWithOpenAIMessageMasksModelDetails(t *testing.T) {
 			code:       types.ErrorCodeModelAccessDenied,
 			message:    "This token has no access to model private-model",
 		},
+		{
+			name:       "retry get channel failed",
+			statusCode: http.StatusInternalServerError,
+			code:       types.ErrorCodeGetChannelFailed,
+			message:    "分组 private-group 下模型 private-model 的可用渠道不存在（retry）",
+		},
+		{
+			name:       "model price not configured",
+			statusCode: http.StatusBadRequest,
+			code:       types.ErrorCodeModelPriceError,
+			message:    "模型 private-model 的价格尚未由管理员配置",
+		},
 	}
 
 	for _, tc := range testCases {

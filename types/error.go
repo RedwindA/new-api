@@ -39,6 +39,24 @@ type ErrorCode string
 
 const ModelUnavailableMessage = "The requested model is temporarily unavailable, please try again later"
 
+// ShouldMaskModelDetails reports whether a New API error may expose mapped model
+// or group names and should use ModelUnavailableMessage in public responses.
+func ShouldMaskModelDetails(errorType string, errorCode string, statusCode int) bool {
+	if errorType != string(ErrorTypeNewAPIError) {
+		return false
+	}
+	switch ErrorCode(errorCode) {
+	case ErrorCodeModelNotFound:
+		return statusCode == http.StatusServiceUnavailable
+	case ErrorCodeModelAccessDenied:
+		return statusCode == http.StatusForbidden
+	case ErrorCodeGetChannelFailed, ErrorCodeModelPriceError:
+		return true
+	default:
+		return false
+	}
+}
+
 const (
 	ErrorCodeInvalidRequest         ErrorCode = "invalid_request"
 	ErrorCodeSensitiveWordsDetected ErrorCode = "sensitive_words_detected"
@@ -204,6 +222,9 @@ func (e *NewAPIError) ToOpenAIError() OpenAIError {
 			Code:    e.errorCode,
 		}
 	}
+	if ShouldMaskModelDetails(string(e.errorType), string(e.errorCode), e.StatusCode) {
+		result.Message = ModelUnavailableMessage
+	}
 	if e.errorCode != ErrorCodeCountTokenFailed {
 		result.Message = common.MaskSensitiveInfo(result.Message)
 	}
@@ -232,6 +253,9 @@ func (e *NewAPIError) ToClaudeError() ClaudeError {
 			Message: e.Error(),
 			Type:    string(e.errorType),
 		}
+	}
+	if ShouldMaskModelDetails(string(e.errorType), string(e.errorCode), e.StatusCode) {
+		result.Message = ModelUnavailableMessage
 	}
 	if e.errorCode != ErrorCodeCountTokenFailed {
 		result.Message = common.MaskSensitiveInfo(result.Message)

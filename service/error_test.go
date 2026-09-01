@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -163,6 +164,18 @@ func TestRelayErrorHandlerMasksNewAPIModelDetails(t *testing.T) {
 			statusCode:      http.StatusForbidden,
 			originalMessage: "該令牌無權存取模型 gpt-test",
 		},
+		{
+			name:            "retry get channel failed",
+			statusCode:      http.StatusInternalServerError,
+			errorCode:       types.ErrorCodeGetChannelFailed,
+			originalMessage: "获取分组 default 下模型 gpt-test 的可用渠道失败（retry）: 快取錯誤",
+		},
+		{
+			name:            "model price not configured",
+			statusCode:      http.StatusBadRequest,
+			errorCode:       types.ErrorCodeModelPriceError,
+			originalMessage: "模型 gpt-test 的价格尚未由管理员配置，暂时无法使用，请联系站点管理员开启该模型",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -203,6 +216,51 @@ func TestRelayErrorHandlerKeepsOtherUpstreamModelNotFoundMessage(t *testing.T) {
 	assert.Equal(t, message, newAPIError.Error())
 	assert.Equal(t, message, newAPIError.ToOpenAIError().Message)
 	assert.Equal(t, message, newAPIError.ToClaudeError().Message)
+}
+
+func TestRelayErrorHandlerKeepsOtherUpstreamGetChannelFailedMessage(t *testing.T) {
+	message := "The model 'gpt-test' is currently overloaded"
+	body := `{"error":{"message":"` + message + `","type":"invalid_request_error","code":"get_channel_failed"}}`
+	resp := &http.Response{
+		StatusCode: http.StatusInternalServerError,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	newAPIError := RelayErrorHandler(context.Background(), resp, false)
+
+	require.NotNil(t, newAPIError)
+	assert.Equal(t, message, newAPIError.Error())
+	assert.Equal(t, message, newAPIError.ToOpenAIError().Message)
+	assert.Equal(t, message, newAPIError.ToClaudeError().Message)
+}
+
+func TestTaskErrorWrapperMasksUnavailableModelDetails(t *testing.T) {
+	original := errors.New("分组 default 下模型 gpt-test 的可用渠道不存在（retry）")
+	taskErr := TaskErrorWrapperLocal(original, string(types.ErrorCodeGetChannelFailed), http.StatusInternalServerError)
+
+	require.NotNil(t, taskErr)
+	assert.Equal(t, types.ModelUnavailableMessage, taskErr.Message)
+	assert.Equal(t, original.Error(), taskErr.Error.Error())
+	assert.Equal(t, string(types.ErrorCodeGetChannelFailed), taskErr.Code)
+	assert.True(t, taskErr.LocalError)
+
+	priceErr := errors.New("模型 gpt-test 的价格尚未由管理员配置")
+	taskPriceErr := TaskErrorWrapper(priceErr, string(types.ErrorCodeModelPriceError), http.StatusBadRequest)
+	require.NotNil(t, taskPriceErr)
+	assert.Equal(t, types.ModelUnavailableMessage, taskPriceErr.Message)
+	assert.Equal(t, priceErr.Error(), taskPriceErr.Error.Error())
+	assert.False(t, taskPriceErr.LocalError)
+}
+
+func TestTaskErrorFromAPIErrorMasksUnavailableModelDetails(t *testing.T) {
+	original := "获取分组 default 下模型 gpt-test 的可用渠道失败（retry）: 快取錯誤"
+	apiErr := types.NewError(errors.New(original), types.ErrorCodeGetChannelFailed)
+	taskErr := TaskErrorFromAPIError(apiErr)
+
+	require.NotNil(t, taskErr)
+	assert.Equal(t, types.ModelUnavailableMessage, taskErr.Message)
+	assert.Equal(t, original, taskErr.Error.Error())
+	assert.Equal(t, string(types.ErrorCodeGetChannelFailed), taskErr.Code)
 }
 
 func TestRelayErrorHandlerKeepsOtherNewAPIForbiddenMessage(t *testing.T) {

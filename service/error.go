@@ -123,12 +123,8 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 				(strings.HasPrefix(originalMessage, "This token has no access to model ") ||
 					strings.HasPrefix(originalMessage, "该令牌无权访问模型 ") ||
 					strings.HasPrefix(originalMessage, "該令牌無權存取模型 "))
-			modelNotFound := resp.StatusCode == http.StatusServiceUnavailable &&
-				errorCode == string(types.ErrorCodeModelNotFound)
-			modelAccessDenied := resp.StatusCode == http.StatusForbidden &&
-				errorCode == string(types.ErrorCodeModelAccessDenied)
-			maskPublicMessage := oaiError.Type == string(types.ErrorTypeNewAPIError) &&
-				(modelNotFound || modelAccessDenied || legacyModelAccessDenied)
+			maskPublicMessage := types.ShouldMaskModelDetails(oaiError.Type, errorCode, resp.StatusCode) ||
+				(oaiError.Type == string(types.ErrorTypeNewAPIError) && legacyModelAccessDenied)
 			if maskPublicMessage {
 				oaiError.Message = types.ModelUnavailableMessage
 			}
@@ -224,6 +220,9 @@ func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 		StatusCode: statusCode,
 		Error:      err,
 	}
+	if types.ShouldMaskModelDetails(string(types.ErrorTypeNewAPIError), code, statusCode) {
+		taskError.Message = types.ModelUnavailableMessage
+	}
 
 	return taskError
 }
@@ -233,9 +232,13 @@ func TaskErrorFromAPIError(apiErr *types.NewAPIError) *dto.TaskError {
 	if apiErr == nil {
 		return nil
 	}
+	message := apiErr.Error()
+	if types.ShouldMaskModelDetails(string(apiErr.GetErrorType()), string(apiErr.GetErrorCode()), apiErr.StatusCode) {
+		message = types.ModelUnavailableMessage
+	}
 	return &dto.TaskError{
 		Code:       string(apiErr.GetErrorCode()),
-		Message:    apiErr.Err.Error(),
+		Message:    message,
 		StatusCode: apiErr.StatusCode,
 		Error:      apiErr.Err,
 	}
