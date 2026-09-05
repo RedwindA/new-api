@@ -112,12 +112,21 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 				imageCounter.Commit(info)
 				imageCommitted = true
 			}
+			// Responses SSE has no [DONE] terminator; this is the final event.
+			// Signal completion here so the stream status does not depend on
+			// whether upstream EOF or the client's disconnect arrives first.
+			sr.Done()
 		case "response.failed", "response.incomplete", "response.cancelled", "response.canceled":
 			if !imageCommitted {
 				imageCounter.Reset()
 				imageCounter.Commit(info)
 				imageCommitted = true
 			}
+			if streamResponse.Type == "response.failed" {
+				sr.Stop(fmt.Errorf("responses stream failed"))
+				return
+			}
+			sr.Done()
 		case "response.output_text.delta":
 			// 处理输出文本
 			responseTextBuilder.WriteString(streamResponse.Delta)
