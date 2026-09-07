@@ -50,6 +50,7 @@ import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
 import SetupCheck from './components/layout/SetupCheck';
 
+const AuditRequestLogs = lazy(() => import('./pages/AuditRequestLogs'));
 const Home = lazy(() => import('./pages/Home'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
@@ -107,6 +108,16 @@ function App() {
           }
         />
         <Route path='/forbidden' element={<Forbidden />} />
+        <Route
+          path='/console/audit-request-logs'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <AuditRequestLogs />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
         <Route
           path='/console/models'
           element={

@@ -52,6 +52,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     redemption: true,
     user: true,
     subscription: true,
+    audit_request: true,
     setting: true,
   },
 };

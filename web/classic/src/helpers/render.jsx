@@ -80,6 +80,7 @@ import {
   Package,
   Server,
   CalendarClock,
+  ScrollText,
 } from 'lucide-react';
 import {
   SiAtlassian,
@@ -128,6 +129,8 @@ export function getLucideIcon(key, selected = false) {
       return <MessageSquare {...commonProps} color={iconColor} />;
     case 'token':
       return <Key {...commonProps} color={iconColor} />;
+    case 'audit_request':
+      return <ScrollText {...commonProps} color={iconColor} />;
     case 'log':
       return <BarChart3 {...commonProps} color={iconColor} />;
     case 'midjourney':

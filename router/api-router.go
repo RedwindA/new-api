@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/model"
 
 	// Import oauth package to register providers via init()
 	_ "github.com/QuantumNous/new-api/oauth"
@@ -15,6 +16,14 @@ func SetApiRouter(router *gin.Engine) {
 	apiRouter := router.Group("/api")
 	apiRouter.Use(middleware.RouteTag("api"))
 	apiRouter.Use(gzip.Gzip(gzip.DefaultCompression))
+	// AuditRequest must run after gzip (capture plaintext written by handlers)
+	// and before the rate limiter (so 429s are still recorded). It is outside
+	// BodyStorageCleanup, so it keeps its own body copies.
+	// AUDIT_SQL_DSN is the only switch: leave the middleware unregistered when
+	// the feature is disabled so capture has zero request-path overhead.
+	if model.IsAuditRequestEnabled() {
+		apiRouter.Use(middleware.AuditRequest())
+	}
 	apiRouter.Use(middleware.BodyStorageCleanup()) // 清理请求体存储
 	apiRouter.Use(middleware.GlobalAPIRateLimit())
 	anonymousRequestBodyLimit := middleware.AnonymousRequestBodyLimit()
@@ -263,6 +272,13 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.PUT("/", controller.UpdateRedemption)
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
+		}
+		auditReqRoute := apiRouter.Group("/audit_request")
+		auditReqRoute.Use(middleware.AdminAuth())
+		{
+			auditReqRoute.GET("/", controller.GetAuditRequestLogs)
+			auditReqRoute.GET("/detail", controller.GetAuditRequestLogDetail)
+			auditReqRoute.GET("/status_codes", controller.GetAuditRequestStatusCodes)
 		}
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)

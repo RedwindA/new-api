@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 	}
 	DB = db
 	LOG_DB = db
+	AUDIT_DB = nil
 
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
 	common.RedisEnabled = false

@@ -342,6 +342,11 @@ func InitResources() error {
 		return err
 	}
 
+	err = model.InitAuditDB()
+	if err != nil {
+		return err
+	}
+
 	// Initialize Redis
 	err = common.InitRedisClient()
 	if err != nil {

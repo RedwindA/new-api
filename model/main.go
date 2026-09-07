@@ -54,6 +54,8 @@ var DB *gorm.DB
 
 var LOG_DB *gorm.DB
 
+var AUDIT_DB *gorm.DB
+
 func createRootAccountIfNeed() error {
 	var user User
 	//if user.Status != common.UserStatusEnabled {
@@ -258,6 +260,137 @@ func InitLogDB() (err error) {
 		common.FatalLog(err)
 	}
 	return err
+}
+
+func InitAuditDB() (err error) {
+	dsn := os.Getenv("AUDIT_SQL_DSN")
+	if dsn == "" {
+		// AUDIT_SQL_DSN is the only enable switch: unset disables the feature
+		// entirely (no AUDIT_DB, no table, no migration).
+		AUDIT_DB = nil
+		common.SysLog("request audit is disabled because AUDIT_SQL_DSN is not set")
+		return nil
+	}
+	if !isClickHouseDSN(dsn) {
+		AUDIT_DB = nil
+		return fmt.Errorf("audit database only supports ClickHouse; AUDIT_SQL_DSN must be a ClickHouse DSN (clickhouse://, tcp://, http://, or https://)")
+	}
+
+	common.SysLog("using ClickHouse as audit database")
+	db, err := gorm.Open(clickhouse.Open(normalizeClickHouseDSN(dsn)), &gorm.Config{PrepareStmt: false})
+	if err != nil {
+		return err
+	}
+	if common.DebugEnabled {
+		db = db.Debug()
+	}
+	AUDIT_DB = db
+	sqlDB, err := AUDIT_DB.DB()
+	if err != nil {
+		return err
+	}
+	sqlDB.SetMaxIdleConns(common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", 100))
+	sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
+	sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
+
+	if !common.IsMasterNode {
+		return nil
+	}
+	common.SysLog("audit request log database migration started")
+	return migrateAUDITDB()
+}
+
+func migrateAUDITDB() error {
+	if AUDIT_DB == nil {
+		return fmt.Errorf("audit database is not initialized")
+	}
+	return migrateClickHouseAuditDB()
+}
+
+func migrateClickHouseAuditDB() error {
+	ttlDays := clickHouseAuditTTLDays()
+	if err := AUDIT_DB.Exec(clickHouseAuditCreateTableSQL(ttlDays)).Error; err != nil {
+		return err
+	}
+	// Tables created before the business-result column existed need it added;
+	// CREATE TABLE IF NOT EXISTS does not touch an existing table.
+	if err := AUDIT_DB.Exec("ALTER TABLE audit_request_logs ADD COLUMN IF NOT EXISTS result Int32 DEFAULT 0 AFTER status_code").Error; err != nil {
+		return err
+	}
+	return syncClickHouseAuditTTL(ttlDays)
+}
+
+func clickHouseAuditTTLDays() int {
+	ttlDays := common.GetEnvOrDefault("AUDIT_SQL_CLICKHOUSE_TTL_DAYS", 0)
+	if ttlDays < 0 {
+		return 0
+	}
+	return ttlDays
+}
+
+func clickHouseAuditTTLExpression(ttlDays int) string {
+	if ttlDays <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("toDateTime(created_at) + INTERVAL %d DAY DELETE", ttlDays)
+}
+
+func clickHouseAuditTTLClause(ttlDays int) string {
+	expression := clickHouseAuditTTLExpression(ttlDays)
+	if expression == "" {
+		return ""
+	}
+	return "\nTTL " + expression
+}
+
+func clickHouseAuditCreateTableSQL(ttlDays int) string {
+	return fmt.Sprintf(`
+CREATE TABLE IF NOT EXISTS audit_request_logs (
+	created_at Int64 DEFAULT 0,
+	request_id String DEFAULT '',
+	ip String DEFAULT '',
+	user_agent String DEFAULT '',
+	method String DEFAULT '',
+	route String DEFAULT '',
+	path String DEFAULT '',
+	query String DEFAULT '',
+	status_code Int32 DEFAULT 0,
+	result Int32 DEFAULT 0,
+	latency_ms Int32 DEFAULT 0,
+	user_id Int32 DEFAULT 0,
+	username String DEFAULT '',
+	user_role Int32 DEFAULT 0,
+	request_body String DEFAULT '',
+	response_body String DEFAULT '',
+	body_truncated Int32 DEFAULT 0
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMM(toDateTime(created_at))
+ORDER BY (created_at, request_id)%s`, clickHouseAuditTTLClause(ttlDays))
+}
+
+func syncClickHouseAuditTTL(ttlDays int) error {
+	expression := clickHouseAuditTTLExpression(ttlDays)
+	if expression != "" {
+		return AUDIT_DB.Exec("ALTER TABLE audit_request_logs MODIFY TTL " + expression).Error
+	}
+
+	hasTTL, err := clickHouseAuditTableHasTTL()
+	if err != nil {
+		return err
+	}
+	if !hasTTL {
+		return nil
+	}
+	return AUDIT_DB.Exec("ALTER TABLE audit_request_logs REMOVE TTL").Error
+}
+
+func clickHouseAuditTableHasTTL() (bool, error) {
+	var createTableSQL string
+	if err := AUDIT_DB.Raw("SHOW CREATE TABLE audit_request_logs").Scan(&createTableSQL).Error; err != nil {
+		return false, err
+	}
+	return clickHouseCreateTableHasTTL(createTableSQL), nil
 }
 
 func migrateDB() error {
@@ -691,6 +824,11 @@ func closeDB(db *gorm.DB) error {
 }
 
 func CloseDB() error {
+	if AUDIT_DB != nil && AUDIT_DB != DB && AUDIT_DB != LOG_DB {
+		if err := closeDB(AUDIT_DB); err != nil {
+			return err
+		}
+	}
 	if err := closeRequestCaptureDB(); err != nil {
 		return err
 	}

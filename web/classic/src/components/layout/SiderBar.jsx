@@ -39,6 +39,7 @@ const routerMap = {
   user: '/console/user',
   subscription: '/console/subscription',
   log: '/console/log',
+  audit_request: '/console/audit-request-logs',
   midjourney: '/console/midjourney',
   setting: '/console/setting',
   about: '/about',
@@ -181,6 +182,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('用户管理'),
         itemKey: 'user',
         to: '/user',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('Audit Request Logs'),
+        itemKey: 'audit_request',
+        to: '/console/audit-request-logs',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
