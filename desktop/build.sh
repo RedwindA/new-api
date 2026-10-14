@@ -22,6 +22,8 @@ if [[ "${SKIP_WEB:-}" != "1" ]]; then
   (cd "$ROOT_DIR/web" && bun install --frozen-lockfile && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION="$VERSION" bun run build)
 fi
 
+# go list reports the directory of a module only once it is downloaded.
+(cd "$ROOT_DIR" && go mod download github.com/Calcium-Ion/moejs)
 PGO="$(cd "$ROOT_DIR" && go list -m -f '{{.Dir}}' github.com/Calcium-Ion/moejs)/default.pgo"
 
 build_server() {
