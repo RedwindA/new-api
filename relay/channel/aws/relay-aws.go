@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -61,19 +60,6 @@ func newAwsInvokeError(requestContext context.Context, err error, operation stri
 	)
 }
 
-// awsOriginRecorder records where the SDK sends each request. The endpoint it
-// resolves (FIPS, dual-stack, normalized region) is the upstream address that
-// errors returned to the client must mask.
-type awsOriginRecorder struct {
-	client bedrockruntime.HTTPClient
-	c      *gin.Context
-}
-
-func (r awsOriginRecorder) Do(request *http.Request) (*http.Response, error) {
-	common.SetContextKey(r.c, constant.ContextKeyUpstreamRequestOrigin, request.URL.Scheme+"://"+request.URL.Host)
-	return r.client.Do(request)
-}
-
 func newAwsClient(c *gin.Context, info *relaycommon.RelayInfo) (*bedrockruntime.Client, error) {
 	httpClient, err := service.GetHttpClientWithProxySettings(info.ChannelSetting.Proxy, info.ChannelSetting)
 	if err != nil {
@@ -89,7 +75,7 @@ func newAwsClient(c *gin.Context, info *relaycommon.RelayInfo) (*bedrockruntime.
 		client = bedrockruntime.New(bedrockruntime.Options{
 			Region:                  region,
 			BearerAuthTokenProvider: bearer.StaticTokenProvider{Token: bearer.Token{Value: apiKey}},
-			HTTPClient:              awsOriginRecorder{client: httpClient, c: c},
+			HTTPClient:              httpClient,
 		})
 	case 3:
 		ak := awsSecret[0]
@@ -98,7 +84,7 @@ func newAwsClient(c *gin.Context, info *relaycommon.RelayInfo) (*bedrockruntime.
 		client = bedrockruntime.New(bedrockruntime.Options{
 			Region:      region,
 			Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(ak, sk, "")),
-			HTTPClient:  awsOriginRecorder{client: httpClient, c: c},
+			HTTPClient:  httpClient,
 		})
 	default:
 		return nil, errors.New("invalid aws secret key")

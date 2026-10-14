@@ -414,8 +414,8 @@ export function buildSubmitRequest(ctx){return {url:ctx.baseUrl+"/submit"}} expo
 
 func TestTaskAdaptorMasksChannelAddressInBuildFailure(t *testing.T) {
 	source := `
-export const meta = {apiVersion:1,key:"build-fail",name:"Build Fail",version:"1.0.0",author:{name:"Test"},models:["m"],fetchMode:"per_task",allowedHosts:["files.vendor.example"]};
-export function buildSubmitRequest(ctx){throw new Error("utils.fetch to private.example.com failed: dial tcp: lookup private.example.com: no such host; utils.fetch to files.vendor.example failed: dial tcp: lookup files.vendor.example: no such host")}
+export const meta = {apiVersion:1,key:"build-fail",name:"Build Fail",version:"1.0.0",author:{name:"Test"},models:["m"],fetchMode:"per_task"};
+export function buildSubmitRequest(ctx){throw new Error("utils.fetch to private.example.com failed: dial tcp: lookup private.example.com: no such host")}
 export function parseSubmitResponse(){return {taskId:"one"}} export function buildQueryRequest(){return {}} export function parseTaskResult(){return {status:"SUCCESS"}}
 `
 	plugin, err := pluginruntime.NewRegistry().Register(source, pluginruntime.Options{})
@@ -435,7 +435,6 @@ export function parseSubmitResponse(){return {taskId:"one"}} export function bui
 	assert.True(t, taskErr.LocalError)
 	assert.Contains(t, taskErr.Message, "no such host")
 	assert.NotContains(t, taskErr.Message, "private.example.com")
-	assert.NotContains(t, taskErr.Message, "files.vendor.example")
 }
 
 const orderedProtocolPlugin = `

@@ -165,9 +165,8 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		}
 	}
 	if _, err := a.buildSubmit(c, info); err != nil {
-		// utils.fetch failures in the build hook name the host fetched: the
-		// channel base URL or one of the plugin's allowed hosts.
-		taskErr := service.TaskErrorWrapper(err, "plugin_request_invalid", http.StatusBadRequest, append(common.UpstreamAddresses(c), a.plugin.Meta.AllowedHosts...)...)
+		// utils.fetch failures in the build hook name the upstream host.
+		taskErr := service.TaskErrorWrapper(err, "plugin_request_invalid", http.StatusBadRequest, common.UpstreamAddresses(c)...)
 		taskErr.LocalError = true
 		return taskErr
 	}

@@ -41,7 +41,8 @@ const (
 	ContextKeyChannelKey               ContextKey = "channel_key"
 
 	// ContextKeyUpstreamRequestOrigin is the scheme and host of the last upstream
-	// request, which differs from the base URL for absolute Advanced Custom routes.
+	// request, which differs from the base URL for absolute Advanced Custom routes
+	// and for adaptors that build official endpoints themselves.
 	ContextKeyUpstreamRequestOrigin ContextKey = "upstream_request_origin"
 
 	ContextKeyAutoGroup           ContextKey = "auto_group"
