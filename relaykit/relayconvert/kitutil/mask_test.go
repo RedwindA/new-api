@@ -14,10 +14,10 @@ func TestMaskSensitiveInfoMasksOnlyTheUpstreamAddress(t *testing.T) {
 		want         string
 	}{
 		{
-			name:         "no upstream address leaves addresses readable",
+			name:         "no upstream address leaves hosts readable but masks IPs",
 			upstreamURLs: []string{"", ""},
 			input:        `Post "https://api.upstream.example.com/v1/chat/completions": dial tcp 10.0.0.1:443: connect: connection refused`,
-			want:         `Post "https://api.upstream.example.com/v1/chat/completions": dial tcp 10.0.0.1:443: connect: connection refused`,
+			want:         `Post "https://api.upstream.example.com/v1/chat/completions": dial tcp ***.***.***.***:443: connect: connection refused`,
 		},
 		{
 			name:         "no upstream address still masks API key values",

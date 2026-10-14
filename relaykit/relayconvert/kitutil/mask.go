@@ -83,9 +83,11 @@ func maskURLQuery(rawQuery string) string {
 // MaskSensitiveInfo masks the upstream addresses in str and leaves every other
 // URL and domain readable. upstreamURLs are the channel base URL and the URL
 // the gateway actually requested, which differs for routes such as absolute
-// Advanced Custom paths; empty entries are skipped. Credentials are masked
-// regardless of the upstream: API key values and the query values of every URL,
-// which carry secrets such as client_secret or key on provider endpoints.
+// Advanced Custom paths; empty entries are skipped. Credentials and IPv4
+// addresses are masked regardless of the upstream: API key values, the query
+// values and userinfo of every URL, which carry secrets such as client_secret
+// or key on provider endpoints, and IPs, which in network errors include the
+// gateway's own address.
 // Example with upstream https://api.upstream.example.com:
 // https://api.upstream.example.com/v1/chat?key=secret -> https://***.com/***/***?key=***
 // lookup api.upstream.example.com -> lookup ***.***.***.com
@@ -183,13 +185,14 @@ func MaskSensitiveInfo(str string, upstreamURLs ...string) string {
 
 		return result + maskURLQuery(u.RawQuery) + suffix
 	})
+
+	// Mask IP addresses: in network errors they are the resolved upstream
+	// address or the gateway's own, so they are masked even without an
+	// upstream address, and an IP upstream host is covered too.
+	str = maskIPPattern.ReplaceAllString(str, "***.***.***.***")
 	if len(upstreamHosts) == 0 {
 		return str
 	}
-
-	// Mask IP addresses: in network errors they are the resolved upstream
-	// address or the gateway's own, and an IP upstream host is covered too.
-	str = maskIPPattern.ReplaceAllString(str, "***.***.***.***")
 
 	// Mask an upstream host where it appears without a scheme, as in
 	// "dial tcp: lookup api.example.com: no such host". Longer hosts go first
