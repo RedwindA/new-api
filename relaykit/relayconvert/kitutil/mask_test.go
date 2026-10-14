@@ -20,6 +20,18 @@ func TestMaskSensitiveInfoMasksOnlyTheUpstreamAddress(t *testing.T) {
 			want:         `Post "https://api.upstream.example.com/v1/chat/completions": dial tcp ***.***.***.***:443: connect: connection refused`,
 		},
 		{
+			name:         "bracketed IPv6 addresses are masked without an upstream address",
+			upstreamURLs: nil,
+			input:        `dial tcp [2a01:4f8::1]:443: i/o timeout; lookup api.example.com on [::1]:53; dial tcp [fe80::1%eth0]:443; dial tcp [::ffff:10.0.0.1]:443; items[0] and [1:2] stay`,
+			want:         `dial tcp [***]:443: i/o timeout; lookup api.example.com on [***]:53; dial tcp [***]:443; dial tcp [***]:443; items[0] and [1:2] stay`,
+		},
+		{
+			name:         "IPv6 upstream base URL in a WebSocket dial error",
+			upstreamURLs: []string{"http://[2001:db8::1]:8080"},
+			input:        `dial failed to ws://[2001:db8::1]:8080/v1/realtime: dial tcp [2001:db8::1]:8080: connect: connection refused`,
+			want:         `dial failed to ws://***:8080/***/***: dial tcp [***]:8080: connect: connection refused`,
+		},
+		{
 			name:         "no upstream address still masks API key values",
 			upstreamURLs: nil,
 			input:        `invalid api_key:AIzaSyAAAaUooTUni8AdaOkSRMda30n_Q4vrV70`,

@@ -16,6 +16,10 @@ var (
 	// the caller trims them, like other punctuation, only when they trail it.
 	maskURLPattern = regexp.MustCompile(`(?:https?|wss?)://[^\s"<>{}]+`)
 	maskIPPattern  = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+	// maskBracketedIPv6Pattern matches the bracketed form Go network errors use
+	// for IPv6 addresses, as in "dial tcp [2001:db8::1]:443", with an optional
+	// zone; the caller confirms the content parses as an IP.
+	maskBracketedIPv6Pattern = regexp.MustCompile(`\[([0-9A-Fa-f:.]*:[0-9A-Fa-f:.]*)(%[^\]\s]*)?\]`)
 	// maskApiKeyPattern matches patterns like 'api_key:xxx' or "api_key:xxx" to mask the API key value
 	maskApiKeyPattern = regexp.MustCompile(`(['"]?)api_key:([^\s'"]+)(['"]?)`)
 )
@@ -188,7 +192,14 @@ func MaskSensitiveInfo(str string, upstreamURLs ...string) string {
 
 	// Mask IP addresses: in network errors they are the resolved upstream
 	// address or the gateway's own, so they are masked even without an
-	// upstream address, and an IP upstream host is covered too.
+	// upstream address, and an IP upstream host is covered too. IPv6 goes
+	// first so an embedded IPv4 such as [::ffff:10.0.0.1] still parses.
+	str = maskBracketedIPv6Pattern.ReplaceAllStringFunc(str, func(match string) string {
+		if net.ParseIP(maskBracketedIPv6Pattern.FindStringSubmatch(match)[1]) == nil {
+			return match
+		}
+		return "[***]"
+	})
 	str = maskIPPattern.ReplaceAllString(str, "***.***.***.***")
 	if len(upstreamHosts) == 0 {
 		return str
