@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -212,6 +213,40 @@ func TestDoAwsClientRequest_ForwardsThinkingBlockBindingAndBetaList(t *testing.T
 	require.NoError(t, common.Unmarshal(awsReq.Body, &payload))
 	assert.Equal(t, []string{"fast-mode-2026-02-01", "thinking-binding-controls-2026-08-01"}, payload.AnthropicBeta)
 	assert.JSONEq(t, `{"type":"adaptive","display":"summarized","block_binding":{"prefix_mismatch_behavior":"drop_block"}}`, string(payload.Thinking))
+}
+
+// Bedrock has no base URL, so the endpoint the SDK actually sends to is what
+// hides the addresses in a network error returned to the client. A FIPS region
+// resolves to a different host than the region name suggests, and the request
+// may go through the environment proxy.
+func TestAwsHandlerMasksTheEndpointAndProxyTheSdkUses(t *testing.T) {
+	t.Setenv("HTTPS_PROXY", "http://egress.private.invalid:8080")
+	c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+	client, err := newAwsClient(c, &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ApiKey: "access-key|secret-key|fips-us-east-1"}})
+	require.NoError(t, err)
+	var sentHost string
+	recorder, ok := client.Options().HTTPClient.(awsOriginRecorder)
+	require.True(t, ok)
+	recorder.client = awsHTTPClientFunc(func(request *http.Request) (*http.Response, error) {
+		sentHost = request.URL.Host
+		return nil, fmt.Errorf("proxyconnect tcp: dial tcp: lookup egress.private.invalid on 10.0.0.2:53: no such host (target %s)", request.URL.Host)
+	})
+	client = bedrockruntime.New(client.Options(), func(options *bedrockruntime.Options) {
+		options.HTTPClient = recorder
+		options.Retryer = aws.NopRetryer{}
+	})
+	info := newAwsTestRelayInfo()
+	info.IsStream = false
+
+	apiErr, _ := awsHandler(c, info, &Adaptor{AwsClient: client, AwsReq: newAwsInvokeModelInput()})
+
+	require.NotNil(t, apiErr)
+	require.Equal(t, "bedrock-runtime-fips.us-east-1.amazonaws.com", sentHost)
+	message := apiErr.ToOpenAIError(common.UpstreamAddresses(c)...).Message
+	assert.Contains(t, message, "no such host")
+	assert.NotContains(t, message, "bedrock-runtime-fips")
+	assert.NotContains(t, message, "egress.private.invalid")
+	assert.NotContains(t, message, "10.0.0.2")
 }
 
 func TestNewAwsInvokeContextInheritsParent(t *testing.T) {

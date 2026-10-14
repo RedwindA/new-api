@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -209,6 +212,10 @@ func handleTTSWebSocketResponse(c *gin.Context, requestURL string, volcRequest V
 	header := http.Header{}
 	header.Set("Authorization", fmt.Sprintf("Bearer;%s", token))
 
+	// The speech WebSocket is the upstream request here; record it for masking.
+	if targetURL, urlErr := url.Parse(requestURL); urlErr == nil {
+		common.SetContextKey(c, constant.ContextKeyUpstreamRequestOrigin, targetURL.Scheme+"://"+targetURL.Host)
+	}
 	conn, resp, dialErr := websocket.DefaultDialer.DialContext(context.Background(), requestURL, header)
 	if dialErr != nil {
 		if resp != nil {

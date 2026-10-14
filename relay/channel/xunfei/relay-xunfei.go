@@ -130,6 +130,7 @@ func buildXunfeiAuthUrl(hostUrl string, apiKey, apiSecret string) string {
 
 func xunfeiStreamHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string) (*dto.Usage, *types.NewAPIError) {
 	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret, textRequest.Model)
+	common.SetContextKey(c, constant.ContextKeyUpstreamRequestOrigin, xunfeiOrigin)
 	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
@@ -160,6 +161,7 @@ func xunfeiStreamHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, a
 
 func xunfeiHandler(c *gin.Context, textRequest dto.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string) (*dto.Usage, *types.NewAPIError) {
 	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret, textRequest.Model)
+	common.SetContextKey(c, constant.ContextKeyUpstreamRequestOrigin, xunfeiOrigin)
 	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
@@ -263,10 +265,13 @@ func apiVersion2domain(apiVersion string) string {
 	return "general" + apiVersion
 }
 
+// xunfeiOrigin is the Spark WebSocket endpoint, which ignores the channel base URL.
+const xunfeiOrigin = "wss://spark-api.xf-yun.com"
+
 func getXunfeiAuthUrl(c *gin.Context, apiKey string, apiSecret string, modelName string) (string, string) {
 	apiVersion := getAPIVersion(c, modelName)
 	domain := apiVersion2domain(apiVersion)
-	authUrl := buildXunfeiAuthUrl(fmt.Sprintf("wss://spark-api.xf-yun.com/%s/chat", apiVersion), apiKey, apiSecret)
+	authUrl := buildXunfeiAuthUrl(fmt.Sprintf("%s/%s/chat", xunfeiOrigin, apiVersion), apiKey, apiSecret)
 	return domain, authUrl
 }
 

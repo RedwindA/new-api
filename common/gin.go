@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/pkg/errors"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/net/http/httpproxy"
 )
 
 const KeyRequestBody = "key_request_body"
@@ -173,6 +175,24 @@ func GetContextKey(c *gin.Context, key constant.ContextKey) (any, bool) {
 
 func GetContextKeyString(c *gin.Context, key constant.ContextKey) string {
 	return c.GetString(string(key))
+}
+
+// UpstreamAddresses returns the base URL of the selected channel, the origin of
+// the last upstream request and the proxies it may go through, the addresses
+// masked in errors shown to users.
+func UpstreamAddresses(c *gin.Context) []string {
+	// A channel without its own proxy dials through the environment proxy.
+	environmentProxy := httpproxy.FromEnvironment()
+	addresses := []string{
+		GetContextKeyString(c, constant.ContextKeyChannelBaseUrl),
+		GetContextKeyString(c, constant.ContextKeyUpstreamRequestOrigin),
+		environmentProxy.HTTPProxy,
+		environmentProxy.HTTPSProxy,
+	}
+	if setting, ok := GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting); ok {
+		addresses = append(addresses, setting.Proxy)
+	}
+	return addresses
 }
 
 func GetContextKeyInt(c *gin.Context, key constant.ContextKey) int {
