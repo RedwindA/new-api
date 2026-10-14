@@ -27,8 +27,9 @@ tiktoken_cache
 .claude
 .cursor
 
-electron/node_modules
-electron/dist
+desktop/.mygo
+desktop/resources/*-*/
+desktop/resources/licenses/
 /data/
 .gomodcache/
 .gocache-temp

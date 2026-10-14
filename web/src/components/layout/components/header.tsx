@@ -26,6 +26,8 @@ export function Header({ className, children, ...props }: HeaderProps) {
     <header
       className={cn(
         'sticky top-0 z-40 h-[var(--app-header-height,3rem)] w-full shrink-0 bg-transparent',
+        // The title bar of the desktop app's window, under its controls
+        'pr-[var(--mygo-titlebar-inset-right,0px)] pl-[var(--mygo-titlebar-inset-left,0px)] [--app-region:drag]',
         className
       )}
       {...props}

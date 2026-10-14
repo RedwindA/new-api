@@ -25,6 +25,7 @@ import {
   useState,
 } from 'react'
 
+import { getDesktopApi } from '@/lib/desktop'
 import {
   readThemePreference,
   THEME_STORAGE_KEYS,
@@ -97,6 +98,7 @@ export function ThemeProvider({
     }
 
     applyTheme()
+    getDesktopApi()?.setTheme?.(theme)
 
     mediaQuery.addEventListener('change', applyTheme)
 

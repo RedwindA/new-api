@@ -199,7 +199,7 @@ export function PublicHeader(props: PublicHeaderProps) {
 
   return (
     <>
-      <header className='pointer-events-none fixed inset-x-0 top-0 z-50'>
+      <header className='pointer-events-none fixed inset-x-0 top-0 z-50 pr-[var(--mygo-titlebar-inset-right,0px)] pl-[var(--mygo-titlebar-inset-left,0px)]'>
         <div
           className={cn(
             'pointer-events-auto mx-auto transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
@@ -208,7 +208,7 @@ export function PublicHeader(props: PublicHeaderProps) {
         >
           <nav
             className={cn(
-              'flex items-center justify-between gap-2 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
+              'flex items-center justify-between gap-2 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] [--app-region:drag]',
               scrolled
                 ? 'bg-background/60 ring-border/50 h-12 rounded-2xl pr-1.5 pl-4 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)]'
                 : 'h-16 px-2'
@@ -238,7 +238,7 @@ export function PublicHeader(props: PublicHeaderProps) {
             </div>
 
             {/* Desktop nav */}
-            <div className='hidden min-w-0 items-center gap-0.5 lg:flex'>
+            <div className='hidden min-w-0 items-center gap-0.5 [--app-region:no-drag] lg:flex'>
               {links.map((link) => {
                 const isActive = pathname === link.href
                 if (link.external) {
@@ -311,7 +311,7 @@ export function PublicHeader(props: PublicHeaderProps) {
             </div>
 
             {/* Mobile: compact actions + hamburger */}
-            <div className='flex shrink-0 items-center gap-2 lg:hidden'>
+            <div className='flex shrink-0 items-center gap-2 [--app-region:no-drag] lg:hidden'>
               {showThemeSwitch && <ThemeSwitch />}
               {showAuthButtons && !loading && isAuthenticated && (
                 <ProfileDropdown />

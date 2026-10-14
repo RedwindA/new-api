@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { getDesktopApi } from '@/lib/desktop'
 
 import type { SetupStatus } from '../types'
 
@@ -71,14 +72,9 @@ function resolveDatabaseMeta(type?: string) {
 export function DatabaseStep({ status }: DatabaseStepProps) {
   const { t } = useTranslation()
   const meta = resolveDatabaseMeta(status?.database_type)
-  const electronApi =
-    typeof window !== 'undefined'
-      ? ((window as unknown as Record<string, unknown>)?.electron as
-          | Record<string, unknown>
-          | undefined)
-      : undefined
-  const isElectron = Boolean(electronApi?.isElectron)
-  const electronDataDir = electronApi?.dataDir as string | undefined
+  const desktopApi = getDesktopApi()
+  const isDesktop = Boolean(desktopApi)
+  const desktopDataDir = desktopApi?.dataDir
 
   return (
     <div className='space-y-4'>
@@ -118,12 +114,12 @@ export function DatabaseStep({ status }: DatabaseStepProps) {
                 'When running in containers or ephemeral environments, ensure the SQLite file is mapped to persistent storage to avoid data loss on restart.'
               )}
             </p>
-            {isElectron && electronDataDir && (
+            {isDesktop && desktopDataDir && (
               <p className='mt-3 rounded-md bg-amber-100/70 px-3 py-2 font-mono text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'>
-                {t('Data directory:')} {electronDataDir}
+                {t('Data directory:')} {desktopDataDir}
               </p>
             )}
-            {isElectron && !electronDataDir && (
+            {isDesktop && !desktopDataDir && (
               <p className='text-muted-foreground mt-3 text-xs'>
                 {t(
                   'Data is stored locally on this device. Use system backups to keep a safe copy.'

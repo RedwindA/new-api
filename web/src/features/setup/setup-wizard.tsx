@@ -23,6 +23,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { DesktopDragRegion } from '@/components/desktop-drag-region'
 import { ErrorState } from '@/components/error-state'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { LoadingState } from '@/components/loading-state'
@@ -284,7 +285,8 @@ export function SetupWizard() {
 
   return (
     <div className='bg-muted/40 relative min-h-svh py-10'>
-      <div className='absolute top-4 right-4 sm:top-6 sm:right-6'>
+      <DesktopDragRegion />
+      <div className='absolute top-[calc(var(--mygo-titlebar-height,0px)+1rem)] right-4 sm:top-[calc(var(--mygo-titlebar-height,0px)+1.5rem)] sm:right-6'>
         <LanguageSwitcher />
       </div>
       <div className='container mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6'>

@@ -1,9 +1,9 @@
 # Third-Party Licenses
 
 This file summarizes direct third-party dependencies used by distributed builds of this project.
-It is an engineering compliance artifact and should be kept with Docker images, standalone binaries, frontend bundles, and Electron installers.
+It is an engineering compliance artifact and should be kept with Docker images, standalone binaries, frontend bundles, and desktop installers.
 
-Scope: direct dependencies from `go.mod`, `web/package.json`, and `electron/package.json`.
+Scope: direct dependencies from `go.mod`, `web/package.json`, and `desktop/go.mod`.
 Transitive dependencies should be audited before a final external release.
 
 ## Dependency Inventory
@@ -141,9 +141,8 @@ Transitive dependencies should be audited before a final external release.
 | web      | development | npm       | `oxfmt`                                               | `0.57.0`                             | MIT                                                |
 | web      | development | npm       | `oxlint`                                              | `1.74.0`                             | MIT                                                |
 | web      | development | npm       | `shadcn`                                              | `4.13.1`                             | MIT                                                |
-| electron | development | npm       | `cross-env`                                           | `7.0.3`                              | MIT                                                |
-| electron | development | npm       | `electron`                                            | `39.8.5`                             | MIT                                                |
-| electron | development | npm       | `electron-builder`                                    | `26.7.0`                             | MIT                                                |
+| desktop  | production  | Go        | `github.com/egoist/mygo`                              | `v0.4.8`                             | MIT                                                |
+| desktop  | production  | Go        | `golang.org/x/sys`                                    | `v0.49.0`                            | BSD-3-Clause                                       |
 
 ## License Texts
 
