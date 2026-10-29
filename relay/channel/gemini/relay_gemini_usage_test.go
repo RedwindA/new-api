@@ -761,12 +761,20 @@ func TestGeminiHandlersCountGroundingQueries(t *testing.T) {
 // gemini-embedding-001 reports none and keeps the estimate.
 func TestGeminiEmbeddingHandlersBillUpstreamUsageMetadata(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	previousCountToken := constant.CountToken
+	constant.CountToken = true
+	t.Cleanup(func() { constant.CountToken = previousCountToken })
 	const vector = `{"values":[0.1,0.2]}`
+	const embedModel = "gemini-embedding-001"
+	textTokens := tokenkit.Count(embedModel, "a cat")
+	require.Positive(t, textTokens)
+	pngPart := dto.GeminiPart{InlineData: &dto.GeminiInlineData{MimeType: "image/png", Data: "iVBORw0KGgo="}}
 
 	tests := []struct {
 		name     string
 		batch    bool
 		openAI   bool
+		request  dto.Request
 		body     string
 		prompt   int
 		image    int
@@ -808,6 +816,26 @@ func TestGeminiEmbeddingHandlersBillUpstreamUsageMetadata(t *testing.T) {
 			prompt: 9,
 		},
 		{
+			// 001 ignores media parts, so the image estimate in the
+			// pre-consume (9 here) must not be settled.
+			name: "embedContent without usage settles only the text of a media request",
+			request: &dto.GeminiEmbeddingRequest{Content: dto.GeminiChatContent{
+				Parts: []dto.GeminiPart{{Text: "a cat"}, pngPart},
+			}},
+			body:   `{"embedding":` + vector + `}`,
+			prompt: textTokens,
+		},
+		{
+			name:  "batchEmbedContents without usage settles only the text of a media request",
+			batch: true,
+			request: &dto.GeminiBatchEmbeddingRequest{Requests: []*dto.GeminiEmbeddingRequest{
+				{Content: dto.GeminiChatContent{Parts: []dto.GeminiPart{pngPart}}},
+				{Content: dto.GeminiChatContent{Parts: []dto.GeminiPart{{Text: "a cat"}}}},
+			}},
+			body:   `{"embeddings":[` + vector + `,` + vector + `]}`,
+			prompt: textTokens,
+		},
+		{
 			name:   "openai embeddings without usage falls back to estimate",
 			openAI: true,
 			body:   `{"embeddings":[` + vector + `]}`,
@@ -819,10 +847,13 @@ func TestGeminiEmbeddingHandlersBillUpstreamUsageMetadata(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(recorder)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-embedding-2:embedContent", nil)
+			common.SetContextKey(c, constant.ContextKeyOriginalModel, embedModel)
 			info := &relaycommon.RelayInfo{
-				OriginModelName:        "gemini-embedding-2",
+				OriginModelName:        embedModel,
 				IsGeminiBatchEmbedding: tt.batch,
-				ChannelMeta:            &relaycommon.ChannelMeta{UpstreamModelName: "gemini-embedding-2"},
+				RelayFormat:            types.RelayFormatGemini,
+				Request:                tt.request,
+				ChannelMeta:            &relaycommon.ChannelMeta{UpstreamModelName: embedModel},
 			}
 			info.SetEstimatePromptTokens(9)
 			resp := &http.Response{Body: io.NopCloser(strings.NewReader(tt.body))}
