@@ -242,16 +242,35 @@ describe('classifyValue', () => {
       animated: false,
       delay: 0,
     })
-    expect(tail.map((s) => s.value).join('')).toBe('世界和平')
     expect(tail.every((s) => s.animated)).toBe(true)
-    // Tail parts start where splitting the whole run would put them
-    let offset = 0
-    const wholeStarts = new Set<number>()
-    for (const part of splitWords(value)) {
-      wholeStarts.add(offset)
-      offset += part.length
-    }
-    expect(tail.every((s) => wholeStarts.has(s.start))).toBe(true)
+    // Tail parts are exactly the parts splitting the whole run yields there
+    expect(tail.map((s) => s.value)).toEqual(
+      splitWords(value).slice(-tail.length)
+    )
+    expect(tail.map((s) => s.value).join('')).toBe('世界和平')
+  })
+
+  test('does not split a CJK run in the middle of a word', () => {
+    vi.spyOn(performance, 'now').mockReturnValue(1000)
+    const state = createFadeState()
+    const first = beginRun(state)
+    classifyValue(first, '你好。世界')
+    endRun(first)
+
+    vi.spyOn(performance, 'now').mockReturnValue(
+      1000 + FADE_DURATION_MS + FADE_STAGGER_MAX_MS + 1
+    )
+    const value = '你好。世界和平'
+    const second = beginRun(state)
+    const [head, ...tail] = classifyValue(second, value)
+    endRun(second)
+
+    // The settled head stops at the punctuation, not inside 世界和平
+    expect(head).toMatchObject({ start: 0, value: '你好。', animated: false })
+    expect(tail.map((s) => s.value)).toEqual(
+      splitWords(value).slice(-tail.length)
+    )
+    expect(tail.map((s) => s.value).join('')).toBe('世界和平')
   })
 
   test('stops replaying animation after the window expires', () => {

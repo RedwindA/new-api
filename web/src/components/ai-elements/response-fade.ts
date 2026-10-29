@@ -81,6 +81,7 @@ const SPACELESS_REGEX =
 const CJK_BREAK_BEFORE_REGEX = /[\u3001\u3002\uFF0C\uFF1B\uFF1A\uFF01\uFF1F]/
 const CJK_BREAK_AFTER_REGEX =
   /[\u3041-\u3096\u30A1-\u30FA\u3400-\u4DBF\u4E00-\u9FFF]/
+const MAX_SPLIT_POINT_SCAN = 256
 
 let wordSegmenter: Intl.Segmenter | null | undefined
 
@@ -237,14 +238,16 @@ export function classifyValue(run: FadeRun, value: string): FadeSegment[] {
     }
   }
   // Back up to a point where splitting the tail yields the same parts (and
-  // therefore the same start keys) as splitting the whole value.
+  // therefore the same start keys) as splitting the whole value. A long run
+  // without such a point is split whole rather than scanned to its start.
   let splitFrom = liveStart - valueStart
+  const scanLimit = splitFrom - MAX_SPLIT_POINT_SCAN
   while (
     splitFrom > 0 &&
     splitFrom < value.length &&
     !isStableSplitPoint(value, splitFrom)
   ) {
-    splitFrom -= 1
+    splitFrom = splitFrom > scanLimit ? splitFrom - 1 : 0
   }
 
   const segments: FadeSegment[] = []
